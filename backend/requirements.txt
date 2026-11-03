@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+motor
+python-dotenv
+pydantic
+scikit-learn
+spacy
+pandas
+joblib
+PyJWT
+passlib
+bcrypt
+python-multipart
+websockets
+twilio

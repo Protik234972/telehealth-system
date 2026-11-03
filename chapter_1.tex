@@ -1,0 +1,104 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+\usepackage{titlesec}
+\usepackage{setspace}
+\usepackage{tabularx}
+\usepackage{booktabs}
+
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\centering}{\chaptertitlename\ \thechapter}{20pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{-50pt}{40pt}
+
+% Double spacing is often used in academic drafts to meet page length requirements naturally
+\doublespacing 
+
+\begin{document}
+
+\setcounter{chapter}{0}
+\chapter{INTRODUCTION}
+
+\section{Background of the Study}
+The ongoing transformation of digital healthcare delivery has moved operational friction from local physical clinics to remote web platforms. Telehealth networks have grown exponentially in numbers and have provided unparalleled access to medical care remotely. This shift, however, has turned administrative waiting columns into the primary healthcare constraint, effectively bypassing physical queues at clinics and hospitals only to replace them with digital bottlenecks. 
+
+A patient who seeks a virtual consultation will typically provide a simple, written report detailing all of their current symptoms. In normal operational workflows, medical clerks or triage nurses are required to open each digital request, read through unstructured paragraphs of text, manually determine the clinical severity of each case, cross-reference the available doctors' availability charts one by one, and finally schedule an appointment. Major processing latencies are inherently added to this manual processing pipeline, a flaw that is particularly exposed and exacerbated during peak operating times.
+
+The swift emergence of telehealth platforms into the mainstream of health care has undoubtedly helped to democratize patient access, but at the same time, it has revealed significant administrative inefficiencies in virtual clinical workflows. Eliminating physical waiting rooms has solved the problem of requiring patients to be physically present; however, the fundamental administrative mechanics of triage and scheduling are still largely human-driven, manual, and error-prone. This project proposes a web application that allows virtual clinics to automate this intake-to-scheduling transition and helps streamline coordination without incurring the massive resource overhead typically associated with enterprise-level hospital networks.
+
+\section{Problem Statement}
+Healthcare environments today separate patient intake and appointment scheduling—two inherently linked activities—into distinct and disconnected silos. Traditional booking systems approach all consultation requests in exactly the same way, operating on a chronological queue-based system that is prioritized based on submission time rather than the actual clinical need or physical state of the patient. This systemic design introduces three acute problems:
+
+First, it creates dangerous delays for critical patients. Requests are processed in the strict order that they are received. Consequently, a patient experiencing acute, potentially life-threatening symptoms might end up waiting in line behind dozens of routine prescription requests. Due to the blind nature of these intake queues, a person who has an urgent, high-priority symptom may be waiting behind a person seeking answers to basic administrative questions.
+
+Second, the reliance on manual triage generates significant administrative overhead and introduces a high risk of human error. During times of high patient flow, manual triage requires immense administrative effort and frequently introduces inconsistencies in patient severity assessment. This forces healthcare workers to spend a significant portion of their day merely managing and sorting unstructured data, which is a leading cause of administrative staff burnout in modern clinics.
+
+Third, the primary alternatives available to smaller clinics involve outsourced enterprise complexities. Many current automated clinical systems utilize black-box, paid external Large Language Model (LLM) integrations. These outsourced services introduce severe data privacy vulnerabilities regarding Protected Health Information (PHI), incur high runtime operational expenditures, and present deployment challenges that make them highly impractical for small to medium-sized localized medical practices.
+
+There is a clear and pressing need for a localized, lightweight web prototype that can naturally ingest patient symptom narratives securely, safely calculate an objective clinical priority score using local intelligence, and feed this score directly into a priority-aware calendar scheduling database without human intervention.
+
+\section{Aim and Objectives}
+The primary aim of this project is to build a lightweight, secure web application that leverages localized natural language text classification to automatically triage patient symptoms and dynamically coordinate priority-based telehealth appointments. 
+
+To achieve this aim, the following specific objectives have been established:
+\begin{enumerate}
+    \item To generate and organize an open-source medical symptom text dataset in a rigorous priority-based classification matrix, suitable for general practice triage.
+    \item To develop and train a local, low-parameter Natural Language Processing (NLP) machine learning system with high classification accuracy to extract priority markers from free-text patient narratives.
+    \item To develop and create a responsive web platform featuring an integrated patient intake system, a dynamic automatic scheduling engine, and a live coordinator dashboard view.
+    \item To assess the scheduling of the system in terms of its operational efficiency, model accuracy, and processing time using a simulated multi-patient booking environment.
+\end{enumerate}
+
+\section{Research Questions}
+To guide the development and evaluation of the system, the following research questions have been formulated:
+\begin{enumerate}
+    \item To what degree can a small-sized, localized text classification model assess patient-written, unstructured symptom descriptions and classify them correctly into clinical urgency levels?
+    \item How does an integrated scheduling algorithm utilizing clinical priorities improve the processing delay and the waiting time in appointments, compared to classic chronological booking approaches?
+    \item What are the key design elements and database schemas required to guarantee secure and real-time data visibility between the automated backend AI system and the coordinator's scheduling application?
+\end{enumerate}
+
+\section{Project Scope}
+The scope and boundaries of the project are defined as follows:
+\begin{itemize}
+    \item \textbf{Target Environment}: The system is specifically designed for small to medium-sized general medicine telehealth practices.
+    \item \textbf{Operational Modes}: The NLP classification engine will exclusively classify English text input into three operational modes: Routine, Urgent, and Emergency. 
+    \item \textbf{Emergency Handling}: If an Emergency classification is triggered, the system will execute an explicit layout warning message advising the patient to contact local emergency services immediately.
+    \item \textbf{Data Privacy}: All machine learning inference will occur locally on the server to prevent external exposure of PHI.
+\end{itemize}
+
+\section{Limitations of the Study}
+This platform serves strictly as an administrative assistant for medical practitioners, aiding in operational prioritizations and routing decisions. It is unequivocally not intended to make medical diagnostic conclusions, prescribe medical treatment, or supplant certified human medical judgment. 
+
+Furthermore, the accuracy of the system is heavily dependent on the syntax of the text inputs provided by the user. Text inputs that are highly ambiguous, severely misspelled, or intentionally misleading will adversely affect the accuracy of the classification model and subsequent scheduling priority.
+
+\section{Expected Outcomes}
+Upon completion of this project, the following outcomes are expected:
+\begin{itemize}
+    \item A fully functional, responsive web application featuring clean patient registration intake views for clinic administrators and an extensive, dynamic scheduling grid.
+    \item An NLP Text classification microservice that operates entirely locally, negating the need for internet connectivity during inference and completely eliminating API transactional costs.
+    \item Empirical data demonstrating a measurable reduction in administrative processing times and optimized queue organization compared to traditional manual scheduling pipelines.
+\end{itemize}
+
+\section{Significance of the Project}
+The successful implementation of this system will prove that it is possible to eradicate the administrative barriers of manual data entry in localized clinics without requiring massive financial investments in enterprise cloud software. By optimizing specialists' time and dynamically routing patients based on medical necessity, the project holds the potential to significantly reduce clinical waiting times for high-urgency remote consultations in a secure, reliable, and privacy-conscious manner.
+
+\section{Work Plan}
+The project follows a structured 10-week timeline to ensure all objectives are met within the academic timeframe.
+
+\begin{table}[h]
+\centering
+\caption{Project Work Plan and Timeline}
+\begin{tabularx}{\textwidth}{|c|X|}
+\hline
+\textbf{Week} & \textbf{Planned Activities} \\ \hline
+1 - 2 & Conduct extensive literature search, set hard limits on requirements, collect and process training sets of the target text classification. \\ \hline
+3 - 4 & Develop and tune local NLP script code in a development environment; perform initial model training, validation, and performance tuning. \\ \hline
+5 - 7 & Design the API for the backend application, design the core database schemas, and code the logic for the priority-aware scheduling engine. \\ \hline
+8 & Build front-end user interface screens using React.js and complete integration of the interface layers with the functional back-end REST endpoints. \\ \hline
+9 - 10 & Run automated testing scenarios, collect empirical system performance data, resolve functional bugs, and complete the final project thesis report document. \\ \hline
+\end{tabularx}
+\end{table}
+
+\section{Chapter Summary}
+This chapter has established the foundational context of the study by highlighting the severe administrative inefficiencies currently plaguing telehealth workflows. The problem statement clearly identified the detriments of manual triage delays and chronological scheduling limitations. Furthermore, the project's precise objectives, research questions, scope, and expected outcomes were defined. The chapter concluded with a structured work plan that dictates the development lifecycle for the ensuing chapters.
+
+\end{document}
