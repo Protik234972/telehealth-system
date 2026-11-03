@@ -212,7 +212,7 @@ class CalendarManager:
         
         return stolen_time
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://baruaprotik234972_db_user:Uiewwb%40124144@cluster0.c0pht6s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://baruaprotik234972_db_user:vY0FHCnBb8q1Pe1c@cluster0.c0pht6s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 client = AsyncIOMotorClient(MONGO_URI)
 db = client.telehealth_db
 
