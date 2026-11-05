@@ -9,6 +9,7 @@ export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,8 +27,11 @@ export default function Login({ onLoginSuccess }) {
       }
     }
 
+    setLoading(true);
+
     try {
       if (isRegistering) {
+        // 1. Register the new patient account
         const response = await fetch(`${API_URL}/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -38,10 +42,30 @@ export default function Login({ onLoginSuccess }) {
           const data = await response.json();
           throw new Error(data.detail || 'Registration failed');
         }
+
+        // 2. Automatically log them in right away!
+        const formData = new URLSearchParams();
+        formData.append('username', username);
+        formData.append('password', password);
         
-        // Auto switch to login after registering
+        const loginRes = await fetch(`${API_URL}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formData
+        });
+
+        if (loginRes.ok) {
+          const data = await loginRes.json();
+          localStorage.setItem('token', data.access_token);
+          localStorage.setItem('role', data.role);
+          toast.success(`Account created! Welcome, ${username}!`);
+          onLoginSuccess();
+          return;
+        }
+
+        // Fallback if auto-login fails
         setIsRegistering(false);
-        toast.success('Registration successful! Please sign in.');
+        toast.success('Registration successful! Please sign in with your credentials.');
       } else {
         const formData = new URLSearchParams();
         formData.append('username', username);
@@ -53,7 +77,10 @@ export default function Login({ onLoginSuccess }) {
           body: formData
         });
         
-        if (!response.ok) throw new Error('Invalid credentials');
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.detail || 'Invalid username or password');
+        }
         
         const data = await response.json();
         localStorage.setItem('token', data.access_token);
@@ -63,6 +90,8 @@ export default function Login({ onLoginSuccess }) {
       }
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -136,16 +165,17 @@ export default function Login({ onLoginSuccess }) {
 
           <button 
             type="submit"
-            className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all transform active:scale-95"
+            disabled={loading}
+            className={`w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all transform active:scale-95 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            {isRegistering ? 'Register Account' : 'Sign In'}
+            {loading ? (isRegistering ? 'Creating Account...' : 'Signing In...') : (isRegistering ? 'Register Account' : 'Sign In')}
           </button>
         </form>
 
         <p className="mt-8 text-center text-sm text-gray-600 dark:text-gray-400">
           {isRegistering ? 'Already have an account?' : "Don't have an account?"}
           <button 
-            onClick={() => setIsRegistering(!isRegistering)}
+            onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
             className="ml-2 font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors"
           >
             {isRegistering ? 'Sign In' : 'Register Now'}
