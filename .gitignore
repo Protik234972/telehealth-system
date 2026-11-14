@@ -20,6 +20,9 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 
+# Planning & Internal Agent Docs
+.planning/
+
 # LaTeX build artifacts
 *.aux
 *.log
