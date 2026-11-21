@@ -14,6 +14,10 @@ export default function PatientPortal() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (formData.symptom_text.trim().length < 10) {
+      setError('Please describe your symptoms in at least 10 characters so the triage model has sufficient context.');
+      return;
+    }
     setLoading(true);
     setError(null);
     setResult(null);
@@ -29,7 +33,10 @@ export default function PatientPortal() {
         body: JSON.stringify(formData)
       });
       
-      if (!response.ok) throw new Error('Failed to submit symptoms');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Failed to submit symptoms');
+      }
       
       const data = await response.json();
       setResult(data);
@@ -83,12 +90,13 @@ export default function PatientPortal() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Describe your symptoms in detail</label>
           <textarea 
-            required rows="4"
+            required minLength={10} rows="4"
             className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
             value={formData.symptom_text}
             onChange={(e) => setFormData({...formData, symptom_text: e.target.value})}
             placeholder="I have been experiencing a sharp pain in my chest for the last 2 hours..."
           />
+          <p className="text-xs text-gray-500 mt-1">Minimum 10 characters ({formData.symptom_text.trim().length}/10)</p>
         </div>
         
         <button 
@@ -118,6 +126,11 @@ export default function PatientPortal() {
                 </p>
               </div>
             )}
+            <div className="bg-red-100 border-l-4 border-red-700 rounded-lg p-3 mb-3">
+              <p className="text-sm font-bold text-red-900">
+                If this is a life-threatening medical emergency, please call your local emergency services (e.g., 999 / 911) or go to the nearest Emergency Department immediately.
+              </p>
+            </div>
             <p className="text-sm text-red-600">A confirmation email has been sent. Please arrive as early as possible. A coordinator will contact you shortly.</p>
           </div>
         </div>

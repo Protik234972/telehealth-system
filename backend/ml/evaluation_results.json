@@ -1,0 +1,118 @@
+{
+  "model_bytes": 130859,
+  "synthetic_holdout": {
+    "test_rows": 2000,
+    "accuracy": 1.0,
+    "confusion_matrix": [
+      [
+        667,
+        0,
+        0
+      ],
+      [
+        0,
+        666,
+        0
+      ],
+      [
+        0,
+        0,
+        667
+      ]
+    ],
+    "classification_report": {
+      "Emergency": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 667.0
+      },
+      "Urgent": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 666.0
+      },
+      "Routine": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 667.0
+      },
+      "accuracy": 1.0,
+      "macro avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 2000.0
+      },
+      "weighted avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 2000.0
+      }
+    }
+  },
+  "unseen_natural_holdout": {
+    "test_rows": 24,
+    "accuracy": 0.9583333333333334,
+    "confusion_matrix": [
+      [
+        8,
+        0,
+        0
+      ],
+      [
+        0,
+        8,
+        0
+      ],
+      [
+        0,
+        1,
+        7
+      ]
+    ],
+    "classification_report": {
+      "Emergency": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 8.0
+      },
+      "Urgent": {
+        "precision": 0.8888888888888888,
+        "recall": 1.0,
+        "f1-score": 0.9411764705882353,
+        "support": 8.0
+      },
+      "Routine": {
+        "precision": 1.0,
+        "recall": 0.875,
+        "f1-score": 0.9333333333333333,
+        "support": 8.0
+      },
+      "accuracy": 0.9583333333333334,
+      "macro avg": {
+        "precision": 0.9629629629629629,
+        "recall": 0.9583333333333334,
+        "f1-score": 0.9581699346405229,
+        "support": 24.0
+      },
+      "weighted avg": {
+        "precision": 0.9629629629629629,
+        "recall": 0.9583333333333334,
+        "f1-score": 0.9581699346405229,
+        "support": 24.0
+      }
+    },
+    "misclassified": [
+      {
+        "text": "Small itchy dry patch on my elbow for a few days, no fever or pain.",
+        "true": "Routine",
+        "pred": "Urgent"
+      }
+    ]
+  }
+}

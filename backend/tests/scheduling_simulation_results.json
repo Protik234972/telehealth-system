@@ -1,0 +1,70 @@
+{
+  "num_patients": 100,
+  "class_mix": {
+    "Emergency": 15,
+    "Urgent": 30,
+    "Routine": 55
+  },
+  "assumptions": {
+    "seed": 42,
+    "first_arrival_utc": "2026-11-23T09:00:00",
+    "business_days_of_arrivals": 2,
+    "arrivals_per_business_day": 50,
+    "slot_minutes": 30,
+    "business_hours_utc": "09:00-17:00",
+    "slots_per_day": 16,
+    "weekends_skipped": false,
+    "baseline": "FIFO: next free slot from 30 minutes after submission for every patient",
+    "policy": "CalendarManager rules: Urgent from +26 h, Routine from +76 h, Emergency preempts earliest pending Routine/Urgent slot"
+  },
+  "preemptions_triggered": 15,
+  "fifo_baseline": {
+    "Emergency": {
+      "count": 15,
+      "mean_wait_hours": 59.25,
+      "median_wait_hours": 53.67,
+      "max_wait_hours": 114.22
+    },
+    "Urgent": {
+      "count": 30,
+      "mean_wait_hours": 52.7,
+      "median_wait_hours": 49.37,
+      "max_wait_hours": 113.18
+    },
+    "Routine": {
+      "count": 55,
+      "mean_wait_hours": 50.97,
+      "median_wait_hours": 49.43,
+      "max_wait_hours": 114.6
+    },
+    "Overall": {
+      "count": 100,
+      "mean_wait_hours": 52.73
+    }
+  },
+  "priority_preemption": {
+    "Emergency": {
+      "count": 15,
+      "mean_wait_hours": 14.35,
+      "median_wait_hours": 17.72,
+      "max_wait_hours": 25.55
+    },
+    "Urgent": {
+      "count": 30,
+      "mean_wait_hours": 73.72,
+      "median_wait_hours": 46.63,
+      "max_wait_hours": 169.72
+    },
+    "Routine": {
+      "count": 55,
+      "mean_wait_hours": 103.35,
+      "median_wait_hours": 99.43,
+      "max_wait_hours": 140.1
+    },
+    "Overall": {
+      "count": 100,
+      "mean_wait_hours": 81.11
+    }
+  },
+  "emergency_wait_reduction_pct": 75.78
+}

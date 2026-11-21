@@ -2,6 +2,7 @@
 backend/venv/
 backend/__pycache__/
 backend/ml/__pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
 
@@ -23,6 +24,12 @@ Thumbs.db
 # Planning & Internal Agent Docs
 .planning/
 
+# Reports & Academic Documents
+*.docx
+*.pdf
+REPORT_CONSISTENCY_AUDIT.md
+report_charts/
+
 # LaTeX build artifacts
 *.aux
 *.log
@@ -30,4 +37,5 @@ Thumbs.db
 *.lot
 *.out
 *.toc
+
 

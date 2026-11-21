@@ -1,0 +1,128 @@
+{
+  "Emergency": [
+    {
+      "token": "uncontrollable",
+      "weight": 2.961
+    },
+    {
+      "token": "bleed",
+      "weight": 2.961
+    },
+    {
+      "token": "breathe",
+      "weight": 2.878
+    },
+    {
+      "token": "struggle",
+      "weight": 2.194
+    },
+    {
+      "token": "sudden",
+      "weight": 1.945
+    },
+    {
+      "token": "breath",
+      "weight": 1.71
+    },
+    {
+      "token": "heavy",
+      "weight": 1.622
+    },
+    {
+      "token": "stop",
+      "weight": 1.622
+    },
+    {
+      "token": "catch",
+      "weight": 1.571
+    },
+    {
+      "token": "send",
+      "weight": 1.487
+    }
+  ],
+  "Routine": [
+    {
+      "token": "slightly",
+      "weight": 3.477
+    },
+    {
+      "token": "mild",
+      "weight": 3.07
+    },
+    {
+      "token": "normal",
+      "weight": 2.686
+    },
+    {
+      "token": "slight",
+      "weight": 2.441
+    },
+    {
+      "token": "routine",
+      "weight": 2.292
+    },
+    {
+      "token": "discomfort",
+      "weight": 2.088
+    },
+    {
+      "token": "bit",
+      "weight": 1.973
+    },
+    {
+      "token": "minor",
+      "weight": 1.848
+    },
+    {
+      "token": "follow",
+      "weight": 1.568
+    },
+    {
+      "token": "want",
+      "weight": 1.461
+    }
+  ],
+  "Urgent": [
+    {
+      "token": "bad",
+      "weight": 2.851
+    },
+    {
+      "token": "pain",
+      "weight": 2.704
+    },
+    {
+      "token": "bear",
+      "weight": 2.667
+    },
+    {
+      "token": "persistent",
+      "weight": 2.355
+    },
+    {
+      "token": "twist",
+      "weight": 2.27
+    },
+    {
+      "token": "sleep",
+      "weight": 2.264
+    },
+    {
+      "token": "severe",
+      "weight": 1.946
+    },
+    {
+      "token": "throw",
+      "weight": 1.896
+    },
+    {
+      "token": "fast",
+      "weight": 1.894
+    },
+    {
+      "token": "injure",
+      "weight": 1.894
+    }
+  ]
+}

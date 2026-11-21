@@ -1,0 +1,19 @@
+{
+  "num_requests": 100,
+  "environment": "Local FastAPI TestClient with in-memory FakeDB (excludes MongoDB Atlas network RTT)",
+  "spacy_preprocess_ms": {
+    "mean": 9.614,
+    "p95": 11.888,
+    "max": 13.597
+  },
+  "tfidf_calibrated_svm_ms": {
+    "mean": 5.635,
+    "p95": 7.07,
+    "max": 8.155
+  },
+  "end_to_end_local_api_ms": {
+    "mean": 32.908,
+    "p95": 39.219,
+    "max": 51.033
+  }
+}

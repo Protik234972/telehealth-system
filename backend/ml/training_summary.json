@@ -1,0 +1,69 @@
+{
+  "dataset_rows": 10000,
+  "train_rows": 8000,
+  "test_rows": 2000,
+  "cv_folds": 5,
+  "best_params": {
+    "clf__estimator__C": "1",
+    "tfidf__ngram_range": "(1, 1)"
+  },
+  "best_cv_score": 1.0,
+  "vocab_size": 224,
+  "model_bytes": 130859,
+  "test_accuracy": 1.0,
+  "labels": [
+    "Emergency",
+    "Urgent",
+    "Routine"
+  ],
+  "confusion_matrix": [
+    [
+      667,
+      0,
+      0
+    ],
+    [
+      0,
+      666,
+      0
+    ],
+    [
+      0,
+      0,
+      667
+    ]
+  ],
+  "classification_report": {
+    "Emergency": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 667.0
+    },
+    "Urgent": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 666.0
+    },
+    "Routine": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 667.0
+    },
+    "accuracy": 1.0,
+    "macro avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2000.0
+    },
+    "weighted avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2000.0
+    }
+  }
+}

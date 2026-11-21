@@ -110,7 +110,7 @@ function App() {
                         : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
                       }`}
                     >
-                      {userRole === 'patient' ? 'My Dashboard' : 'Staff Dashboard'}
+                      {userRole === 'patient' ? 'My Dashboard' : userRole === 'staff' ? 'Clinical Workspace' : 'Triage Operations'}
                     </button>
 
                     {userRole === 'admin' && (
