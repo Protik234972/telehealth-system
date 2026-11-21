@@ -395,37 +395,64 @@ export default function Dashboard({ onLogout }) {
   };
 
   const exportQueueCSV = () => {
-    const listToExport = activeTab === 'archive' 
-      ? (filteredArchive.length > 0 ? filteredArchive : archiveList) 
-      : (filteredQueue.length > 0 ? filteredQueue : (queue.length > 0 ? queue : archiveList));
-    if (!listToExport || listToExport.length === 0) {
-      toast.error('No patient data available to export.');
-      return;
-    }
-    const headers = ['Priority', 'Patient Name', 'Contact Info', 'Scheduled Time', 'Status', 'Assigned Doctor', 'Symptoms', 'Doctor Notes'];
-    const rows = listToExport.map(a => [
-      `"${(a.ai_urgency_score || '').replace(/"/g, '""')}"`,
-      `"${(a.patient_name || '').replace(/"/g, '""')}"`,
-      `"${(a.contact_info || '').replace(/"/g, '""')}"`,
-      `"${a.scheduled_time ? new Date(a.scheduled_time).toLocaleString() : 'Not Scheduled'}"`,
-      `"${(a.final_status === 'Completed' ? 'Completed' : a.final_status === 'Dismissed' ? 'Dismissed' : a.assigned_to ? 'Assigned' : 'Pending')}"`,
-      `"${(a.assigned_to ? `Dr. ${a.assigned_to}` : 'Unassigned')}"`,
-      `"${(a.raw_symptom_text || '').replace(/\r?\n/g, ' ').replace(/"/g, '""')}"`,
-      `"${(a.doctor_notes || '').replace(/\r?\n/g, ' ').replace(/"/g, '""')}"`
-    ]);
+    try {
+      let listToExport = [];
+      if (activeTab === 'archive') {
+        listToExport = filteredArchive.length > 0 
+          ? filteredArchive 
+          : (archiveList.length > 0 ? archiveList : (filteredQueue.length > 0 ? filteredQueue : queue));
+      } else if (activeTab === 'my_cases') {
+        listToExport = filteredQueue.length > 0 ? filteredQueue : queue.filter(isMyCase);
+      } else if (activeTab === 'assigned') {
+        listToExport = filteredQueue.length > 0 ? filteredQueue : queue.filter(isAssigned);
+      } else if (activeTab === 'unassigned') {
+        listToExport = filteredQueue.length > 0 ? filteredQueue : queue.filter(isUnassigned);
+      } else {
+        listToExport = filteredQueue.length > 0 ? filteredQueue : queue;
+      }
 
-    // Use UTF-8 BOM (\uFEFF) for Excel compatibility and Blob download
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${activeTab === 'archive' ? 'patient_records_archive' : 'clinical_triage_handover'}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast.success('Clinical shift handover CSV downloaded!');
+      if (!listToExport || listToExport.length === 0) {
+        listToExport = queue.length > 0 ? queue : archiveList;
+      }
+
+      if (!listToExport || listToExport.length === 0) {
+        toast.error('No patient data available to export.');
+        return;
+      }
+
+      const headers = ['Priority', 'Patient Name', 'Contact Info', 'Scheduled Time', 'Status', 'Assigned Doctor', 'Symptoms', 'Doctor Notes'];
+      const rows = listToExport.map(a => [
+        `"${String(a.ai_urgency_score ?? '').replace(/"/g, '""')}"`,
+        `"${String(a.patient_name ?? '').replace(/"/g, '""')}"`,
+        `"${String(a.contact_info ?? '').replace(/"/g, '""')}"`,
+        `"${a.scheduled_time ? new Date(a.scheduled_time).toLocaleString() : 'Not Scheduled'}"`,
+        `"${(a.final_status === 'Completed' ? 'Completed' : a.final_status === 'Dismissed' ? 'Dismissed' : a.assigned_to ? 'Assigned' : 'Pending')}"`,
+        `"${(a.assigned_to ? `Dr. ${a.assigned_to}` : 'Unassigned')}"`,
+        `"${String(a.raw_symptom_text ?? '').replace(/\r?\n/g, ' ').replace(/"/g, '""')}"`,
+        `"${String(a.doctor_notes ?? '').replace(/\r?\n/g, ' ').replace(/"/g, '""')}"`
+      ]);
+
+      // Use UTF-8 BOM (\uFEFF) for Excel compatibility and Blob download
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${activeTab === 'archive' ? 'patient_records_archive' : 'clinical_triage_handover'}_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        if (link && link.parentNode) {
+          link.parentNode.removeChild(link);
+        }
+        URL.revokeObjectURL(url);
+      }, 500);
+      toast.success(`Clinical handover CSV downloaded (${rows.length} records)!`);
+    } catch (err) {
+      console.error('CSV export failed:', err);
+      toast.error(`CSV export error: ${err.message || 'Unable to generate CSV'}`);
+    }
   };
 
   return (
