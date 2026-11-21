@@ -58,6 +58,7 @@ export default function Login({ onLoginSuccess }) {
           const data = await loginRes.json();
           localStorage.setItem('token', data.access_token);
           localStorage.setItem('role', data.role);
+          localStorage.setItem('username', username);
           toast.success(`Account created! Welcome, ${username}!`);
           onLoginSuccess();
           return;
@@ -85,6 +86,7 @@ export default function Login({ onLoginSuccess }) {
         const data = await response.json();
         localStorage.setItem('token', data.access_token);
         localStorage.setItem('role', data.role);
+        localStorage.setItem('username', username);
         toast.success(`Welcome back! Logged in as ${data.role}.`);
         onLoginSuccess();
       }

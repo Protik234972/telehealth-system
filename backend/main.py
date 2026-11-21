@@ -389,9 +389,9 @@ async def submit_symptoms(request: SymptomRequest, background_tasks: BackgroundT
 @app.get("/get-queue")
 async def get_queue(current_user: dict = Depends(get_current_user)):
     try:
-        # If staff/admin, show all pending. If patient, show ONLY their appointments (any status)
+        # If staff/admin, show all non-dismissed appointments. If patient, show ONLY their appointments (any status)
         if current_user["role"] in ["admin", "staff"]:
-            query = {"final_status": "Pending"}
+            query = {"final_status": {"$ne": "Dismissed"}}
         else:
             query = {"username": current_user["username"]}
             
@@ -599,6 +599,7 @@ async def update_status(appointment_id: str, status_update: StatusUpdate, backgr
 
 class PriorityOverride(BaseModel):
     new_priority: str
+    reason: Optional[str] = None
 
 @app.patch("/override-priority/{appointment_id}")
 async def override_priority(appointment_id: str, override: PriorityOverride, current_user: dict = Depends(get_current_user)):
@@ -607,23 +608,63 @@ async def override_priority(appointment_id: str, override: PriorityOverride, cur
         
     if not ObjectId.is_valid(appointment_id):
         raise HTTPException(status_code=400, detail="Invalid appointment ID format")
+
+    appt = await db.appointments.find_one({"_id": ObjectId(appointment_id)})
+    if not appt:
+        raise HTTPException(status_code=404, detail="Appointment not found")
         
     new_time = await CalendarManager.get_next_available_slot(override.new_priority)
+    reason_text = override.reason or "Clinical priority adjustment"
     
     result = await db.appointments.update_one(
         {"_id": ObjectId(appointment_id)},
         {"$set": {
             "ai_urgency_score": override.new_priority,
             "scheduled_time": new_time,
-            "overridden_by": current_user["username"]
+            "overridden_by": current_user["username"],
+            "override_reason": reason_text
         }}
     )
     
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Appointment not found")
+
+    # Log into clinical audit trail
+    await db.audit_logs.insert_one({
+        "action": "PRIORITY_OVERRIDE",
+        "appointment_id": str(appointment_id),
+        "patient_name": appt.get("patient_name", "Unknown"),
+        "performed_by": current_user["username"],
+        "old_priority": appt.get("ai_urgency_score"),
+        "new_priority": override.new_priority,
+        "reason": reason_text,
+        "timestamp": datetime.utcnow()
+    })
         
     await manager.broadcast("update")
     return {"message": "Priority updated", "new_time": new_time}
+
+@app.get("/audit-logs")
+async def get_audit_logs(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["admin", "staff"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    logs = await db.audit_logs.find({}).sort("timestamp", -1).to_list(length=100)
+    for log in logs:
+        log["_id"] = str(log["_id"])
+        if isinstance(log.get("timestamp"), datetime):
+            log["timestamp"] = log["timestamp"].isoformat()
+    return {"logs": logs}
+
+@app.get("/all-appointments")
+async def get_all_appointments(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["admin", "staff"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    cursor = db.appointments.find({})
+    appointments = await cursor.to_list(length=500)
+    appointments.sort(key=lambda x: x.get("submission_time", datetime.min), reverse=True)
+    for appt in appointments:
+        appt["_id"] = str(appt["_id"])
+    return {"appointments": appointments}
 
 class ScheduleOverride(BaseModel):
     new_time: datetime

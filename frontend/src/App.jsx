@@ -1,17 +1,69 @@
 import { useState, useEffect } from 'react'
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Sun, Bell, Check, Trash2, Zap, AlertTriangle } from 'lucide-react'
 import { Toaster } from 'react-hot-toast'
 import LandingPage from './components/LandingPage'
 import Dashboard from './components/Dashboard'
 import PatientDashboard from './components/PatientDashboard'
 import Analytics from './components/Analytics'
 import Login from './components/Login'
+import { WS_URL } from './config'
 
 function App() {
   const [currentView, setCurrentView] = useState('landing')
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userRole, setUserRole] = useState(null)
   const [darkMode, setDarkMode] = useState(false)
+  
+  // Real-time Notification Center State
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      type: 'system',
+      title: '🟢 System Online',
+      message: 'Connected to TeleTriage real-time WebSocket cluster.',
+      time: 'Just now',
+      unread: false
+    }
+  ])
+  const [showNotifications, setShowNotifications] = useState(false)
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    try {
+      const ws = new WebSocket(WS_URL);
+      ws.onmessage = (event) => {
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (event.data === 'emergency_preemption') {
+          setNotifications(prev => [
+            {
+              id: Date.now(),
+              type: 'emergency',
+              title: '⚡ Emergency Preemption Dispatched',
+              message: 'An emergency case required schedule preemption. Notifications sent to impacted patient.',
+              time: timeStr,
+              unread: true
+            },
+            ...prev
+          ]);
+        } else if (event.data === 'update') {
+          setNotifications(prev => [
+            {
+              id: Date.now(),
+              type: 'update',
+              title: '🔄 Live Queue Updated',
+              message: 'A patient triage intake, priority override, or assignment was recorded.',
+              time: timeStr,
+              unread: true
+            },
+            ...prev
+          ]);
+        }
+      };
+      return () => ws.close();
+    } catch (e) {
+      console.warn('WS notification init error', e);
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -37,6 +89,7 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('role')
+    localStorage.removeItem('username')
     setIsAuthenticated(false)
     setUserRole(null)
     setCurrentView('landing')
@@ -87,9 +140,83 @@ function App() {
                 <button
                   onClick={() => setDarkMode(!darkMode)}
                   className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition"
+                  title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
                 >
                   {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </button>
+
+                {/* Real-time Notification Center */}
+                {isAuthenticated && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowNotifications(!showNotifications)}
+                      className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition relative"
+                      title="Real-time Clinical Notifications"
+                    >
+                      <Bell className="w-5 h-5" />
+                      {notifications.filter(n => n.unread).length > 0 && (
+                        <span className="absolute top-1 right-1 flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+                        </span>
+                      )}
+                    </button>
+
+                    {showNotifications && (
+                      <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 py-3 z-50">
+                        <div className="flex items-center justify-between px-4 pb-2 border-b border-gray-100 dark:border-gray-700">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-gray-800 dark:text-white">Live Clinical Feed</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                              {notifications.filter(n => n.unread).length} new
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setNotifications(prev => prev.map(n => ({ ...n, unread: false })))}
+                              className="text-[11px] text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 font-medium px-1.5 py-0.5 rounded transition"
+                              title="Mark all as read"
+                            >
+                              Read all
+                            </button>
+                            <button
+                              onClick={() => setNotifications([])}
+                              className="text-[11px] text-gray-400 hover:text-red-500 p-1 rounded transition"
+                              title="Clear all"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="max-h-72 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700/50">
+                          {notifications.length === 0 ? (
+                            <p className="p-4 text-center text-xs text-gray-400">No notifications yet.</p>
+                          ) : (
+                            notifications.map(n => (
+                              <div
+                                key={n.id}
+                                className={`p-3 transition hover:bg-gray-50 dark:hover:bg-gray-700/40 ${
+                                  n.unread ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="text-xs font-bold text-gray-800 dark:text-white leading-tight">
+                                    {n.title}
+                                  </p>
+                                  <span className="text-[10px] text-gray-400 shrink-0">{n.time}</span>
+                                </div>
+                                <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-snug">
+                                  {n.message}
+                                </p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {!isAuthenticated && (
                   <button
