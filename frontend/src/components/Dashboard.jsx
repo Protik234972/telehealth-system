@@ -78,6 +78,15 @@ export default function Dashboard({ onLogout }) {
       if (!response.ok) throw new Error('Failed to fetch queue');
       const data = await response.json();
       setQueue(data.queue);
+      setArchiveList(prev => {
+        const map = new Map();
+        prev.forEach(item => map.set(item._id, item));
+        data.queue.forEach(item => {
+          const existing = map.get(item._id);
+          map.set(item._id, { ...existing, ...item });
+        });
+        return Array.from(map.values());
+      });
       setSelectedPatient(prev => {
         if (!prev) return null;
         return data.queue.find(a => a._id === prev._id) || null;
@@ -125,10 +134,18 @@ export default function Dashboard({ onLogout }) {
       });
       if (response.ok) {
         const data = await response.json();
-        setArchiveList(data.appointments || []);
+        if (data.appointments && Array.isArray(data.appointments)) {
+          setArchiveList(prev => {
+            const map = new Map();
+            prev.forEach(item => map.set(item._id, item));
+            data.appointments.forEach(item => map.set(item._id, item));
+            return Array.from(map.values());
+          });
+          return;
+        }
       }
     } catch (err) {
-      console.error('Failed to fetch archive', err);
+      console.warn('Live backend archive fallback', err);
     }
   };
 
@@ -174,7 +191,8 @@ export default function Dashboard({ onLogout }) {
 
   const handleUpdateStatus = async (id, status, assigned_to = null, doctor_notes = null) => {
     try {
-      const body = { status };
+      const backendStatus = status === 'Assigned to Doctor' ? 'Pending' : status;
+      const body = { status: backendStatus };
       if (assigned_to) body.assigned_to = assigned_to;
       if (doctor_notes) body.doctor_notes = doctor_notes;
 
@@ -188,9 +206,40 @@ export default function Dashboard({ onLogout }) {
           toast.success('Patient dismissed');
         } else if (status === 'Completed') {
           toast.success('Consultation completed and patient discharged');
+        } else if (assigned_to) {
+          toast.success(`Patient assigned to Dr. ${assigned_to}. Notification email triggered!`);
         } else {
-          toast.success(`Patient assigned to ${assigned_to}. Notification email triggered!`);
+          toast.success('Status updated successfully');
         }
+
+        setQueue(prev => prev.map(a => a._id === id ? {
+          ...a,
+          final_status: backendStatus,
+          assigned_to: assigned_to || a.assigned_to,
+          doctor_notes: doctor_notes || a.doctor_notes
+        } : a));
+
+        setArchiveList(prev => {
+          const updated = prev.map(a => a._id === id ? {
+            ...a,
+            final_status: status === 'Assigned to Doctor' ? 'Assigned' : status,
+            assigned_to: assigned_to || a.assigned_to,
+            doctor_notes: doctor_notes || a.doctor_notes
+          } : a);
+          if (!updated.some(a => a._id === id)) {
+            const appt = queue.find(a => a._id === id);
+            if (appt) {
+              updated.unshift({
+                ...appt,
+                final_status: status === 'Assigned to Doctor' ? 'Assigned' : status,
+                assigned_to: assigned_to || appt.assigned_to,
+                doctor_notes: doctor_notes || appt.doctor_notes
+              });
+            }
+          }
+          return updated;
+        });
+
         await Promise.all([fetchQueue(), fetchArchive()]);
       } else {
         toast.error('Failed to update status');
@@ -346,20 +395,23 @@ export default function Dashboard({ onLogout }) {
   };
 
   const exportQueueCSV = () => {
-    const listToExport = activeTab === 'archive' ? filteredArchive : filteredQueue;
+    const listToExport = activeTab === 'archive' 
+      ? (filteredArchive.length > 0 ? filteredArchive : archiveList) 
+      : (filteredQueue.length > 0 ? filteredQueue : queue);
     if (!listToExport || listToExport.length === 0) {
       toast.error('No data to export.');
       return;
     }
-    const headers = ['Priority', 'Patient Name', 'Contact Info', 'Scheduled Time', 'Status', 'Assigned Doctor', 'Symptoms'];
+    const headers = ['Priority', 'Patient Name', 'Contact Info', 'Scheduled Time', 'Status', 'Assigned Doctor', 'Symptoms', 'Doctor Notes'];
     const rows = listToExport.map(a => [
       `"${a.ai_urgency_score || ''}"`,
       `"${(a.patient_name || '').replace(/"/g, '""')}"`,
       `"${(a.contact_info || '').replace(/"/g, '""')}"`,
       `"${a.scheduled_time ? new Date(a.scheduled_time).toLocaleString() : 'Not Scheduled'}"`,
-      `"${a.final_status || 'Pending'}"`,
-      `"${a.assigned_to || 'Unassigned'}"`,
-      `"${(a.raw_symptom_text || '').replace(/"/g, '""')}"`
+      `"${(a.final_status === 'Completed' ? 'Completed' : a.final_status === 'Dismissed' ? 'Dismissed' : a.assigned_to ? 'Assigned' : 'Pending')}"`,
+      `"${(a.assigned_to ? `Dr. ${a.assigned_to}` : 'Unassigned')}"`,
+      `"${(a.raw_symptom_text || '').replace(/"/g, '""')}"`,
+      `"${(a.doctor_notes || '').replace(/"/g, '""')}"`
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -370,7 +422,7 @@ export default function Dashboard({ onLogout }) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('CSV report exported!');
+    toast.success('Clinical shift handover CSV downloaded!');
   };
 
   return (
@@ -1071,11 +1123,27 @@ export default function Dashboard({ onLogout }) {
               '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
               '15:00', '15:30', '16:00', '16:30'
             ].map((slotTime) => {
-              const booked = queue.find(a => {
+              const allAppointments = queue.length > 0 ? queue : archiveList;
+              const booked = allAppointments.find(a => {
                 if (!a.scheduled_time) return false;
-                const apptDate = a.scheduled_time.slice(0, 10);
-                const apptTime = new Date(a.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                return apptDate === selectedCalendarDate && apptTime.startsWith(slotTime.slice(0, 4));
+                const d = new Date(a.scheduled_time);
+                if (isNaN(d.getTime())) return false;
+                
+                const utcDate = d.toISOString().slice(0, 10);
+                const utcHour = String(d.getUTCHours()).padStart(2, '0');
+                const utcMin = d.getUTCMinutes() >= 30 ? '30' : '00';
+                const utcSlot = `${utcHour}:${utcMin}`;
+
+                const localY = d.getFullYear();
+                const localM = String(d.getMonth() + 1).padStart(2, '0');
+                const localD = String(d.getDate()).padStart(2, '0');
+                const localDate = `${localY}-${localM}-${localD}`;
+                const localHour = String(d.getHours()).padStart(2, '0');
+                const localMin = d.getMinutes() >= 30 ? '30' : '00';
+                const localSlot = `${localHour}:${localMin}`;
+
+                return (utcDate === selectedCalendarDate && utcSlot === slotTime) ||
+                       (localDate === selectedCalendarDate && localSlot === slotTime);
               });
 
               return (
