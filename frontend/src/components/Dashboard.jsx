@@ -397,31 +397,34 @@ export default function Dashboard({ onLogout }) {
   const exportQueueCSV = () => {
     const listToExport = activeTab === 'archive' 
       ? (filteredArchive.length > 0 ? filteredArchive : archiveList) 
-      : (filteredQueue.length > 0 ? filteredQueue : queue);
+      : (filteredQueue.length > 0 ? filteredQueue : (queue.length > 0 ? queue : archiveList));
     if (!listToExport || listToExport.length === 0) {
-      toast.error('No data to export.');
+      toast.error('No patient data available to export.');
       return;
     }
     const headers = ['Priority', 'Patient Name', 'Contact Info', 'Scheduled Time', 'Status', 'Assigned Doctor', 'Symptoms', 'Doctor Notes'];
     const rows = listToExport.map(a => [
-      `"${a.ai_urgency_score || ''}"`,
+      `"${(a.ai_urgency_score || '').replace(/"/g, '""')}"`,
       `"${(a.patient_name || '').replace(/"/g, '""')}"`,
       `"${(a.contact_info || '').replace(/"/g, '""')}"`,
       `"${a.scheduled_time ? new Date(a.scheduled_time).toLocaleString() : 'Not Scheduled'}"`,
       `"${(a.final_status === 'Completed' ? 'Completed' : a.final_status === 'Dismissed' ? 'Dismissed' : a.assigned_to ? 'Assigned' : 'Pending')}"`,
       `"${(a.assigned_to ? `Dr. ${a.assigned_to}` : 'Unassigned')}"`,
-      `"${(a.raw_symptom_text || '').replace(/"/g, '""')}"`,
-      `"${(a.doctor_notes || '').replace(/"/g, '""')}"`
+      `"${(a.raw_symptom_text || '').replace(/\r?\n/g, ' ').replace(/"/g, '""')}"`,
+      `"${(a.doctor_notes || '').replace(/\r?\n/g, ' ').replace(/"/g, '""')}"`
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    // Use UTF-8 BOM (\uFEFF) for Excel compatibility and Blob download
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `${activeTab === 'archive' ? 'patient_records_archive' : 'triage_handover'}_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.href = url;
+    link.setAttribute('download', `${activeTab === 'archive' ? 'patient_records_archive' : 'clinical_triage_handover'}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast.success('Clinical shift handover CSV downloaded!');
   };
 
