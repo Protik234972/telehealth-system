@@ -47,7 +47,25 @@ export default function Dashboard({ onLogout }) {
   const [showPreemptionBanner, setShowPreemptionBanner] = useState(false);
 
   const userRole = localStorage.getItem('role');
-  const currentUsername = localStorage.getItem('username') || '';
+  const getStoredUsername = () => {
+    const saved = localStorage.getItem('username');
+    if (saved && saved.trim()) return saved.trim();
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          if (payload.sub) {
+            localStorage.setItem('username', payload.sub);
+            return payload.sub;
+          }
+        }
+      }
+    } catch (e) {}
+    return '';
+  };
+  const currentUsername = getStoredUsername();
   const [activeTab, setActiveTab] = useState(userRole === 'staff' ? 'my_cases' : 'all');
   const getToken = () => localStorage.getItem('token');
 
@@ -166,8 +184,14 @@ export default function Dashboard({ onLogout }) {
         body: JSON.stringify(body)
       });
       if (response.ok) {
-        toast.success(status === 'Dismissed' ? 'Patient dismissed' : `Patient assigned to ${assigned_to}. Notification email triggered!`);
-        fetchQueue();
+        if (status === 'Dismissed') {
+          toast.success('Patient dismissed');
+        } else if (status === 'Completed') {
+          toast.success('Consultation completed and patient discharged');
+        } else {
+          toast.success(`Patient assigned to ${assigned_to}. Notification email triggered!`);
+        }
+        await Promise.all([fetchQueue(), fetchArchive()]);
       } else {
         toast.error('Failed to update status');
       }
@@ -255,37 +279,71 @@ export default function Dashboard({ onLogout }) {
     return parts[0][0].toUpperCase();
   };
 
-  const myCasesCount = queue.filter(a => a.assigned_to && a.assigned_to.toLowerCase() === currentUsername.toLowerCase()).length;
-  const unassignedCount = queue.filter(a => !a.assigned_to || a.final_status === 'Pending').length;
-  const assignedCount = queue.filter(a => Boolean(a.assigned_to)).length;
+  const isMyCase = (appt) => {
+    if (!appt.assigned_to || !currentUsername) return false;
+    const a = appt.assigned_to.trim().toLowerCase();
+    const u = currentUsername.trim().toLowerCase();
+    return a === u || a.includes(u) || u.includes(a) || a === `dr. ${u}` || `dr. ${a}` === u;
+  };
+
+  const isAssigned = (appt) => {
+    return appt.final_status === 'Assigned to Doctor' || Boolean(appt.assigned_to);
+  };
+
+  const isUnassigned = (appt) => {
+    return !isAssigned(appt) && appt.final_status !== 'Completed' && appt.final_status !== 'Dismissed';
+  };
+
+  const myCasesCount = queue.filter(a => isMyCase(a) && a.final_status !== 'Completed').length;
+  const unassignedCount = queue.filter(isUnassigned).length;
+  const assignedCount = queue.filter(a => isAssigned(a) && a.final_status !== 'Completed').length;
 
   const filteredQueue = queue.filter(appt => {
-    const matchesSearch = appt.patient_name.toLowerCase().includes(search.toLowerCase()) ||
-                          (appt.contact_info && appt.contact_info.toLowerCase().includes(search.toLowerCase())) ||
-                          (appt.raw_symptom_text && appt.raw_symptom_text.toLowerCase().includes(search.toLowerCase()));
+    const q = search.trim().toLowerCase();
+    const matchesSearch = !q || (
+      (appt.patient_name && appt.patient_name.toLowerCase().includes(q)) ||
+      (appt.contact_info && appt.contact_info.toLowerCase().includes(q)) ||
+      (appt.raw_symptom_text && appt.raw_symptom_text.toLowerCase().includes(q)) ||
+      (appt.assigned_to && appt.assigned_to.toLowerCase().includes(q))
+    );
     const matchesFilter = filter === 'All' || appt.ai_urgency_score === filter;
 
     let matchesTab = true;
     if (activeTab === 'my_cases') {
-      matchesTab = Boolean(appt.assigned_to && appt.assigned_to.toLowerCase() === currentUsername.toLowerCase());
+      matchesTab = isMyCase(appt);
     } else if (activeTab === 'unassigned') {
-      matchesTab = !appt.assigned_to || appt.final_status === 'Pending';
+      matchesTab = isUnassigned(appt);
     } else if (activeTab === 'assigned') {
-      matchesTab = Boolean(appt.assigned_to);
+      matchesTab = isAssigned(appt);
     }
 
     return matchesSearch && matchesFilter && matchesTab;
   });
 
   const filteredArchive = archiveList.filter(appt => {
-    const matchesSearch = (appt.patient_name && appt.patient_name.toLowerCase().includes(search.toLowerCase())) ||
-                          (appt.contact_info && appt.contact_info.toLowerCase().includes(search.toLowerCase())) ||
-                          (appt.raw_symptom_text && appt.raw_symptom_text.toLowerCase().includes(search.toLowerCase())) ||
-                          (appt.assigned_to && appt.assigned_to.toLowerCase().includes(search.toLowerCase()));
+    const q = search.trim().toLowerCase();
+    const matchesSearch = !q || (
+      (appt.patient_name && appt.patient_name.toLowerCase().includes(q)) ||
+      (appt.contact_info && appt.contact_info.toLowerCase().includes(q)) ||
+      (appt.raw_symptom_text && appt.raw_symptom_text.toLowerCase().includes(q)) ||
+      (appt.assigned_to && appt.assigned_to.toLowerCase().includes(q))
+    );
     const matchesUrgency = filter === 'All' || appt.ai_urgency_score === filter;
-    const matchesStatus = archiveStatusFilter === 'All' || appt.final_status === archiveStatusFilter;
+    const matchesStatus = archiveStatusFilter === 'All' || 
+      (archiveStatusFilter === 'Assigned to Doctor'
+        ? (appt.final_status === 'Assigned to Doctor' || Boolean(appt.assigned_to))
+        : appt.final_status === archiveStatusFilter);
     return matchesSearch && matchesUrgency && matchesStatus;
   });
+
+  const openAssignModal = (appt) => {
+    setAssignModal(appt);
+    const preferredDoc = appt.assigned_to || 
+      staffList.find(s => s.role === 'staff')?.username || 
+      (staffList.length > 0 ? staffList[0].username : 'doctor_bob');
+    setSelectedDoctor(preferredDoc);
+    setDoctorNotes(appt.doctor_notes || '');
+  };
 
   const exportQueueCSV = () => {
     const listToExport = activeTab === 'archive' ? filteredArchive : filteredQueue;
@@ -514,19 +572,19 @@ export default function Dashboard({ onLogout }) {
               </button>
 
               <button
-                onClick={() => setActiveTab('all')}
+                onClick={() => setActiveTab('assigned')}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === 'all'
-                    ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
+                  activeTab === 'assigned'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
                     : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
                 }`}
               >
-                <Users className="w-3.5 h-3.5" />
-                All Triage Queue
+                <UserCheck className="w-3.5 h-3.5" />
+                Assigned to Doctors
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                  activeTab === 'all' ? 'bg-purple-700 text-purple-100' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  activeTab === 'assigned' ? 'bg-emerald-700 text-emerald-100' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}>
-                  {queue.length}
+                  {assignedCount}
                 </span>
               </button>
 
@@ -544,6 +602,40 @@ export default function Dashboard({ onLogout }) {
                   activeTab === 'unassigned' ? 'bg-amber-700 text-amber-100' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}>
                   {unassignedCount}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                  activeTab === 'all'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                All Triage Queue
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                  activeTab === 'all' ? 'bg-purple-700 text-purple-100' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                }`}>
+                  {queue.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('archive'); fetchArchive(); }}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                  activeTab === 'archive'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                Records Archive
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                  activeTab === 'archive' ? 'bg-indigo-700 text-indigo-100' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                }`}>
+                  {archiveList.length}
                 </span>
               </button>
             </>
@@ -714,6 +806,11 @@ export default function Dashboard({ onLogout }) {
                         <div>
                           <p className="font-bold text-gray-800 dark:text-white">{appt.patient_name}</p>
                           <p className="text-sm opacity-80 dark:text-gray-300">{appt.contact_info}</p>
+                          {appt.assigned_to && (
+                            <span className="text-[11px] font-semibold text-teal-600 dark:text-teal-400 flex items-center gap-1 mt-0.5">
+                              <Stethoscope className="w-3 h-3 text-teal-500" /> Dr. {appt.assigned_to}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -790,7 +887,7 @@ export default function Dashboard({ onLogout }) {
                               className="p-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800/50 rounded-lg transition" title="Inspect Full Clinical Case">
                               <Eye className="w-5 h-5" />
                             </button>
-                            <button onClick={(e) => { e.stopPropagation(); setAssignModal(appt); setSelectedDoctor(staffList.length > 0 ? staffList[0].username : ''); setDoctorNotes(''); }}
+                            <button onClick={(e) => { e.stopPropagation(); openAssignModal(appt); }}
                               className="p-2 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800/50 rounded-lg transition" title="Assign to Doctor">
                               <UserCheck className="w-5 h-5" />
                             </button>
@@ -1120,11 +1217,17 @@ export default function Dashboard({ onLogout }) {
                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 italic">"{assignModal.raw_symptom_text}"</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign to Doctor</label>
-                <select value={selectedDoctor} onChange={(e) => setSelectedDoctor(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-green-500">
-                  {staffList.map(s => (
-                    <option key={s.username} value={s.username}>{s.username} ({s.role})</option>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assign to Attending Clinician</label>
+                <select 
+                  value={selectedDoctor} 
+                  onChange={(e) => setSelectedDoctor(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-green-500 font-medium"
+                >
+                  <option value="">-- Choose Attending Clinician --</option>
+                  {(staffList.length > 0 ? staffList : [{ username: 'doctor_bob', role: 'staff' }]).map(s => (
+                    <option key={s.username} value={s.username}>
+                      {s.username === 'doctor_bob' ? '👨‍⚕️ Dr. Bob (Attending Clinician)' : `${s.username} (${s.role})`}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1135,8 +1238,17 @@ export default function Dashboard({ onLogout }) {
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-green-500"
                 />
               </div>
-              <button onClick={() => { handleUpdateStatus(assignModal._id, 'Assigned to Doctor', selectedDoctor, doctorNotes); setAssignModal(null); }}
-                className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl shadow-lg hover:shadow-green-500/30 transition-all flex items-center justify-center gap-2">
+              <button 
+                onClick={async () => { 
+                  if (!selectedDoctor) {
+                    toast.error('Please select an attending clinician');
+                    return;
+                  }
+                  await handleUpdateStatus(assignModal._id, 'Assigned to Doctor', selectedDoctor, doctorNotes); 
+                  setAssignModal(null); 
+                }}
+                className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl shadow-lg hover:shadow-green-500/30 transition-all flex items-center justify-center gap-2"
+              >
                 <Send className="w-4 h-4" /> Confirm Assignment
               </button>
             </div>
@@ -1380,9 +1492,7 @@ export default function Dashboard({ onLogout }) {
 
                 <button 
                   onClick={() => {
-                    setAssignModal(selectedPatient);
-                    setSelectedDoctor(staffList.length > 0 ? staffList[0].username : '');
-                    setDoctorNotes(selectedPatient.doctor_notes || '');
+                    openAssignModal(selectedPatient);
                   }}
                   className="flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm"
                 >

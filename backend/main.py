@@ -242,6 +242,11 @@ async def startup_event():
             "hashed_password": bcrypt.hashpw("password123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
             "role": "staff"
         })
+    # Auto-heal legacy or orphaned assigned records where assigned_to is missing or null
+    await db.appointments.update_many(
+        {"final_status": "Assigned to Doctor", "$or": [{"assigned_to": None}, {"assigned_to": ""}, {"assigned_to": {"$exists": False}}]},
+        {"$set": {"assigned_to": "doctor_bob"}}
+    )
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -314,7 +319,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token(data={"sub": user["username"], "role": user["role"]})
-    return {"access_token": access_token, "token_type": "bearer", "role": user["role"]}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "role": user["role"],
+        "username": user["username"]
+    }
 
 # --- API ENDPOINTS ---
 class SymptomRequest(BaseModel):
@@ -401,7 +411,7 @@ async def get_queue(current_user: dict = Depends(get_current_user)):
         priority_map = {"Emergency": 1, "Urgent": 2, "Routine": 3}
         appointments.sort(key=lambda x: (
             priority_map.get(x.get("ai_urgency_score", "Routine"), 4),
-            x.get("submission_time", datetime.max)
+            x.get("submission_time") or datetime.max
         ))
         
         for appt in appointments:
@@ -558,8 +568,11 @@ async def update_status(appointment_id: str, status_update: StatusUpdate, backgr
         raise HTTPException(status_code=404, detail="Appointment not found")
     
     update_fields = {"final_status": status_update.status}
-    if status_update.assigned_to:
-        update_fields["assigned_to"] = status_update.assigned_to
+    if status_update.assigned_to and status_update.assigned_to.strip():
+        update_fields["assigned_to"] = status_update.assigned_to.strip()
+    elif status_update.status == "Assigned to Doctor":
+        if not appointment.get("assigned_to"):
+            update_fields["assigned_to"] = "doctor_bob"
     if status_update.doctor_notes:
         update_fields["doctor_notes"] = status_update.doctor_notes
     update_fields["updated_by"] = current_user["username"]
@@ -661,7 +674,7 @@ async def get_all_appointments(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Not authorized")
     cursor = db.appointments.find({})
     appointments = await cursor.to_list(length=500)
-    appointments.sort(key=lambda x: x.get("submission_time", datetime.min), reverse=True)
+    appointments.sort(key=lambda x: x.get("submission_time") or datetime.min, reverse=True)
     for appt in appointments:
         appt["_id"] = str(appt["_id"])
     return {"appointments": appointments}
