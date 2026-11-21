@@ -28,6 +28,7 @@ Thumbs.db
 *.docx
 *.pdf
 REPORT_CONSISTENCY_AUDIT.md
+REPORT_FEATURES_UPDATE_GUIDE.md
 report_charts/
 
 # LaTeX build artifacts
