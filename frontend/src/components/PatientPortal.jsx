@@ -1,7 +1,20 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Activity, Clock, AlertCircle } from 'lucide-react';
+import { Clock, CheckSquare, Square, Stethoscope } from 'lucide-react';
 import { API_URL } from '../config';
+
+const COMMON_SYMPTOMS = [
+  'Chest Pain / Pressure',
+  'Shortness of Breath',
+  'High Fever >38.5°C',
+  'Severe Headache',
+  'Dizziness / Fainting',
+  'Nausea / Vomiting',
+  'Allergic Reaction / Swelling',
+  'Acute Injury / Bleeding',
+  'Cough / Sore Throat',
+  'Abdominal Pain'
+];
 
 export default function PatientPortal() {
   const loggedInUser = localStorage.getItem('username') || '';
@@ -10,9 +23,8 @@ export default function PatientPortal() {
     contact_info: '',
     symptom_text: ''
   });
-  const [painLevel, setPainLevel] = useState(3);
+  const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [duration, setDuration] = useState('1–2 Days');
-  const [hasFever, setHasFever] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -21,23 +33,55 @@ export default function PatientPortal() {
     if (loggedInUser && !formData.patient_name) {
       setFormData(prev => ({ ...prev, patient_name: loggedInUser }));
     }
-  }, [loggedInUser]);
+  }, [loggedInUser, formData.patient_name]);
+
+  const toggleSymptom = (symptom) => {
+    setSelectedSymptoms(prev =>
+      prev.includes(symptom)
+        ? prev.filter(s => s !== symptom)
+        : [...prev, symptom]
+    );
+  };
+
+  const clearSelectedSymptoms = () => {
+    setSelectedSymptoms([]);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.symptom_text.trim().length < 10) {
-      setError('Please describe your symptoms in at least 10 characters so the triage model has sufficient context.');
+    const narrativeText = formData.symptom_text.trim();
+    const hasCheckboxes = selectedSymptoms.length > 0;
+
+    if (!hasCheckboxes && narrativeText.length < 10) {
+      setError('Please select at least one symptom from the checklist or describe your symptoms in at least 10 characters.');
       return;
     }
+
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
       const token = localStorage.getItem('token');
-      // Format structured clinical vitals context with free text
-      const enrichedSymptoms = `[Vitals: Pain ${painLevel}/10 | Duration: ${duration}${hasFever ? ' | Fever reported' : ''}] ${formData.symptom_text.trim()}`;
-      
+
+      // Cleanly combine selected symptom checkboxes, duration, and clinical narrative
+      const clinicalParts = [];
+      if (selectedSymptoms.length > 0) {
+        clinicalParts.push(`Reported Symptoms: ${selectedSymptoms.join(', ')}`);
+      }
+      if (duration) {
+        clinicalParts.push(`Duration: ${duration}`);
+      }
+
+      let enrichedSymptoms = '';
+      if (narrativeText) {
+        enrichedSymptoms = clinicalParts.length > 0
+          ? `[${clinicalParts.join(' | ')}] ${narrativeText}`
+          : narrativeText;
+      } else {
+        enrichedSymptoms = `[${clinicalParts.join(' | ')}] Patient presents with ${selectedSymptoms.join(', ')} experienced for ${duration}.`;
+      }
+
       const payload = {
         patient_name: formData.patient_name,
         contact_info: formData.contact_info,
@@ -61,27 +105,14 @@ export default function PatientPortal() {
       const data = await response.json();
       setResult(data);
       setFormData({ patient_name: loggedInUser, contact_info: '', symptom_text: '' });
-      setPainLevel(3);
+      setSelectedSymptoms([]);
       setDuration('1–2 Days');
-      setHasFever(false);
       toast.success(`Triage complete! Priority: ${data.urgency}`);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  const getPainLevelColor = (level) => {
-    if (level <= 3) return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200';
-    if (level <= 6) return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200';
-    return 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-rose-200';
-  };
-
-  const getPainLevelLabel = (level) => {
-    if (level <= 3) return 'Mild Discomfort (1–3) 😊';
-    if (level <= 6) return 'Moderate Pain (4–6) 😐';
-    return 'Severe / Acute Pain (7–10) 😫';
   };
 
   const getUrgencyColor = (urgency) => {
@@ -95,11 +126,16 @@ export default function PatientPortal() {
 
   const durationOptions = ['< 2 Hours', '1–2 Days', '3–7 Days', '> 1 Week'];
 
+  const isRedFlag = (symptom) => {
+    return ['Chest Pain / Pressure', 'Shortness of Breath', 'Acute Injury / Bleeding', 'Allergic Reaction / Swelling'].includes(symptom);
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 transition-all duration-300">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
+          <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 flex items-center gap-2">
+            <Stethoscope className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             Clinical Symptom Intake
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -138,32 +174,68 @@ export default function PatientPortal() {
           </div>
         </div>
 
-        {/* Structured Clinical Vitals */}
-        <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700/60 space-y-4">
-          <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-indigo-500" />
-                Pain Scale Assessment: 
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${getPainLevelColor(painLevel)}`}>
-                  {getPainLevelLabel(painLevel)}
-                </span>
+        {/* Common Symptoms Checkboxes Section */}
+        <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700/60 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                Common Symptoms &amp; Red Flags
               </label>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-semibold border border-indigo-100 dark:border-indigo-800">
+                {selectedSymptoms.length} selected
+              </span>
             </div>
-            <input 
-              type="range" min="1" max="10" step="1"
-              value={painLevel}
-              onChange={(e) => setPainLevel(parseInt(e.target.value))}
-              className="w-full accent-indigo-600 cursor-pointer"
-            />
-            <div className="flex justify-between text-[10px] text-gray-400 mt-1 font-semibold">
-              <span>1 (No Pain)</span>
-              <span>5 (Moderate)</span>
-              <span>10 (Severe / Worst Pain)</span>
-            </div>
+            {selectedSymptoms.length > 0 && (
+              <button
+                type="button"
+                onClick={clearSelectedSymptoms}
+                className="text-[11px] text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition font-medium"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400">
+            Select all symptoms that currently apply to your condition:
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            {COMMON_SYMPTOMS.map((symptom) => {
+              const isChecked = selectedSymptoms.includes(symptom);
+              const redFlag = isRedFlag(symptom);
+
+              return (
+                <div
+                  key={symptom}
+                  onClick={() => toggleSymptom(symptom)}
+                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
+                    isChecked
+                      ? redFlag
+                        ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 font-bold shadow-sm'
+                        : 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-200 font-bold shadow-sm'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                  }`}
+                >
+                  <div className="shrink-0">
+                    {isChecked ? (
+                      <CheckSquare className={`w-4 h-4 ${redFlag ? 'text-rose-600 dark:text-rose-400' : 'text-indigo-600 dark:text-indigo-400'}`} />
+                    ) : (
+                      <Square className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    )}
+                  </div>
+                  <span className="flex-1 leading-snug">{symptom}</span>
+                  {redFlag && (
+                    <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300">
+                      Alert
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          <div>
+          {/* Symptom Duration Selector */}
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700/60 mt-3">
             <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-indigo-500" />
               Symptom Duration:
@@ -185,31 +257,25 @@ export default function PatientPortal() {
               ))}
             </div>
           </div>
-
-          <div className="flex items-center gap-2 pt-1">
-            <input 
-              type="checkbox" 
-              id="feverCheck"
-              checked={hasFever} 
-              onChange={(e) => setHasFever(e.target.checked)}
-              className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
-            />
-            <label htmlFor="feverCheck" className="text-xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-              I am experiencing a fever or chills
-            </label>
-          </div>
         </div>
         
+        {/* Freeform Symptom Narrative */}
         <div>
-          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Describe your symptoms in detail</label>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+            Additional Clinical Details &amp; Symptom Narrative
+          </label>
           <textarea 
-            required minLength={10} rows="3"
+            rows="3"
             className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
             value={formData.symptom_text}
             onChange={(e) => setFormData({...formData, symptom_text: e.target.value})}
-            placeholder="E.g., I have sharp chest discomfort radiating to my left arm, feeling breathless since morning..."
+            placeholder="Describe any additional sensations, radiating pain, onset, triggers, or medical history..."
           />
-          <p className="text-[11px] text-gray-400 mt-1">Minimum 10 characters ({formData.symptom_text.trim().length}/10)</p>
+          <p className="text-[11px] text-gray-400 mt-1">
+            {selectedSymptoms.length > 0 
+              ? `${selectedSymptoms.length} symptom(s) selected from checklist.` 
+              : 'Please select symptoms from the checklist above or describe your symptoms.'}
+          </p>
         </div>
         
         <button 

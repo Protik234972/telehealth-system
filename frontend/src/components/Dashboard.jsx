@@ -64,9 +64,7 @@ export default function Dashboard({ onLogout }) {
   const [confirmModal, setConfirmModal] = useState(null);
   const [overrideModal, setOverrideModal] = useState(null);
   const [scheduleModal, setScheduleModal] = useState(null);
-  const [completeModal, setCompleteModal] = useState(null);
-  const [dischargeNotes, setDischargeNotes] = useState('');
-  
+
   // Assignment Form State
   const [staffList, setStaffList] = useState([]);
   const [selectedDoctor, setSelectedDoctor] = useState('');
@@ -83,20 +81,14 @@ export default function Dashboard({ onLogout }) {
 
   // Dedicated Clinical Encounter Suite State (Doctor View)
   const [encounterPatient, setEncounterPatient] = useState(null);
-  const [encounterTab, setEncounterTab] = useState('soap'); // 'soap' | 'rx' | 'ai'
   const [encounterVitals, setEncounterVitals] = useState({
-    bp: '120/80',
-    hr: '76',
-    spo2: '98',
-    temp: '98.6',
-    rr: '16'
+    bp: '',
+    hr: '',
+    spo2: '',
+    temp: '',
+    rr: ''
   });
-  const [soapNotes, setSoapNotes] = useState({
-    subjective: '',
-    objective: '',
-    assessment: '',
-    plan: ''
-  });
+  const [clinicalNote, setClinicalNote] = useState('');
   const [rxNotes, setRxNotes] = useState('');
   const [selectedLabOrders, setSelectedLabOrders] = useState([]);
 
@@ -524,7 +516,7 @@ export default function Dashboard({ onLogout }) {
     } else if (diffMinutes > 0) {
       return { 
         text: `In ${diffMinutes}m`, 
-        badge: 'Starting Soon', 
+        badge: 'Starts Soon', 
         color: 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 animate-pulse font-semibold'
       };
     } else if (diffMinutes >= -60) {
@@ -552,7 +544,7 @@ export default function Dashboard({ onLogout }) {
         dot: 'bg-emerald-500' 
       };
     }
-    if (appt.doctor_notes && (appt.doctor_notes.includes('[SOAP') || appt.doctor_notes.includes('Subjective'))) {
+    if (appt.doctor_notes && (appt.doctor_notes.includes('[CLINICAL') || appt.doctor_notes.includes('[VITALS'))) {
       return { 
         label: 'Encounter In-Progress', 
         color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-300 dark:border-blue-700', 
@@ -580,133 +572,7 @@ export default function Dashboard({ onLogout }) {
     };
   };
 
-  // AI Diagnostic CDS recommendation engine
-  const getAiRecommendations = (appt) => {
-    if (!appt) return null;
-    const text = (appt.raw_symptom_text || '').toLowerCase();
-    const urgency = appt.ai_urgency_score;
-
-    let differentials = [];
-    let redFlags = [];
-    let recommendedWorkup = [];
-    let suggestedPlan = '';
-
-    if (text.includes('chest') || text.includes('heart') || text.includes('pressure') || urgency === 'Emergency') {
-      differentials = [
-        'Acute Coronary Syndrome (ACS) / NSTEMI / STEMI',
-        'Costochondritis / Musculoskeletal Chest Wall Strain',
-        'Gastroesophageal Reflux Disease (GERD) / Esophageal Spasm',
-        'Pericarditis / Pulmonary Embolism'
-      ];
-      redFlags = [
-        'Radiation to left arm, neck, or jaw',
-        'Diaphoresis with unexplained dyspnea',
-        'Hemodynamic instability or syncope'
-      ];
-      recommendedWorkup = [
-        '12-Lead Electrocardiogram (ECG)',
-        'High-Sensitivity Troponin I',
-        'Chest X-Ray (CXR - 2 Views)',
-        'Basic Metabolic Panel (BMP)'
-      ];
-      suggestedPlan = 'Obtain stat 12-lead ECG. Check cardiac biomarkers. Maintain patient seated with supplemental O2 if SpO2 < 94%. Administer Aspirin 300mg chewable unless contraindicated. Urgent cardiology consult if biomarkers elevated.';
-    } else if (text.includes('breath') || text.includes('dyspnea') || text.includes('wheez') || text.includes('asthma')) {
-      differentials = [
-        'Acute Bronchospasm / Asthma Exacerbation',
-        'Community-Acquired Pneumonia (CAP)',
-        'Acute Bronchitis',
-        'Pulmonary Embolism'
-      ];
-      redFlags = [
-        'Accessory respiratory muscle usage',
-        'SpO2 < 92% on room air',
-        'Inability to speak in full sentences'
-      ];
-      recommendedWorkup = [
-        'Continuous Pulse Oximetry',
-        'Chest X-Ray (CXR - 2 Views)',
-        'Complete Blood Count (CBC)',
-        'Peak Expiratory Flow (PEF)'
-      ];
-      suggestedPlan = 'Administer nebulized Albuterol 2.5mg / Ipratropium 0.5mg. Assess response at 20 minutes. Consider oral Prednisone 40mg daily x 5 days. Monitor peak flow.';
-    } else if (text.includes('fever') || text.includes('cough') || text.includes('throat') || text.includes('chills')) {
-      differentials = [
-        'Acute Viral Upper Respiratory Infection (URTI)',
-        'Streptococcal Pharyngitis',
-        'Influenza A/B or COVID-19 Infection',
-        'Acute Bacterial Sinusitis'
-      ];
-      redFlags = [
-        'Temperature > 103°F / 39.4°C refractory to antipyretics',
-        'Stridor, drooling, or severe trismus',
-        'Lethargy or signs of dehydration'
-      ];
-      recommendedWorkup = [
-        'Rapid Strep A / Flu / COVID Swab',
-        'Complete Blood Count (CBC)',
-        'Urinalysis Dipstick & Micro'
-      ];
-      suggestedPlan = 'Encourage oral fluid intake. Paracetamol 500mg-1000mg Q6H PRN for pyrexia. If bacterial pharyngitis confirmed by swab, prescribe Amoxicillin 500mg TID for 7 days.';
-    } else if (text.includes('headache') || text.includes('migraine') || text.includes('dizz')) {
-      differentials = [
-        'Tension-Type Headache',
-        'Acute Migraine (with/without aura)',
-        'Cervicogenic Cephalea',
-        'Secondary Headache (rule out temporal arteritis)'
-      ];
-      redFlags = [
-        'Thunderclap onset ("worst headache of life")',
-        'Focal neurological deficit, visual loss, or diplopia',
-        'Nuchal rigidity or altered mental status'
-      ];
-      recommendedWorkup = [
-        'Neurological & Cranial Nerve Assessment',
-        'Blood Pressure Monitoring',
-        'Basic Metabolic Panel (BMP)'
-      ];
-      suggestedPlan = 'NSAID therapy (Ibuprofen 400-600mg) or Triptan for acute migraine. Dark, quiet environment. Add antiemetic if severe nausea. Return immediately if focal weakness develops.';
-    } else if (text.includes('abdom') || text.includes('stomach') || text.includes('nausea') || text.includes('vomit') || text.includes('diarrhea')) {
-      differentials = [
-        'Acute Viral / Bacterial Gastroenteritis',
-        'Peptic Ulcer Disease / Gastritis',
-        'Acute Appendicitis (Early stage)',
-        'Biliary Colic / Cholecystitis'
-      ];
-      redFlags = [
-        'Involuntary abdominal guarding or rebound tenderness',
-        'Hematemesis, coffee-ground emesis, or melena',
-        'Localized right lower quadrant pain with fever'
-      ];
-      recommendedWorkup = [
-        'Complete Blood Count (CBC)',
-        'Basic Metabolic Panel (BMP)',
-        'Serum Lipase & Amylase',
-        'Urinalysis Dipstick & Micro'
-      ];
-      suggestedPlan = 'Oral rehydration solution in small frequent sips. Ondansetron 4mg ODT for nausea control. Omeprazole 20mg daily for acid suppression. Strict return precautions for escalating abdominal pain.';
-    } else {
-      differentials = [
-        'Primary Acute Presentation under clinical triage',
-        'Symptom constellation consistent with stated complaint',
-        'Early-stage infectious or inflammatory process'
-      ];
-      redFlags = [
-        'Rapidly deteriorating clinical trajectory',
-        'Vital signs deviating outside physiological norms',
-        'Signs of systemic inflammatory response'
-      ];
-      recommendedWorkup = [
-        'Targeted Clinical Examination',
-        'Complete Blood Count (CBC)',
-        'Basic Metabolic Panel (BMP)'
-      ];
-      suggestedPlan = 'Focused system evaluation. Symptomatic relief and tailored prescription plan. Schedule follow-up if symptoms persist beyond 72 hours.';
-    }
-
-    return { differentials, redFlags, recommendedWorkup, suggestedPlan };
-  };
-
-  // Clinical Presets
+  // Prescriptions Presets
   const COMMON_PRESCRIPTIONS = [
     { label: 'Paracetamol', dosage: 'Paracetamol 500mg PO Q4-6H PRN pain/fever (Max 4g/24h)' },
     { label: 'Amoxicillin', dosage: 'Amoxicillin 500mg PO TID x 7 days' },
@@ -718,6 +584,7 @@ export default function Dashboard({ onLogout }) {
     { label: 'Oral Rehydration', dosage: 'Oral Rehydration Salts (ORS) 1 sachet in 200ml water PO PRN' }
   ];
 
+  // Common Laboratory & Diagnostic Orders
   const COMMON_LAB_ORDERS = [
     'Complete Blood Count (CBC)',
     'Basic Metabolic Panel (BMP)',
@@ -732,57 +599,63 @@ export default function Dashboard({ onLogout }) {
   // Open Clinical Encounter Modal
   const openClinicalEncounter = (patient) => {
     setEncounterPatient(patient);
-    setEncounterTab('soap');
 
-    // Initialize Vitals
-    if (patient.ai_urgency_score === 'Emergency') {
-      setEncounterVitals({ bp: '148/92', hr: '106', spo2: '93', temp: '99.4', rr: '22' });
-    } else if (patient.ai_urgency_score === 'Urgent') {
-      setEncounterVitals({ bp: '134/86', hr: '88', spo2: '96', temp: '100.2', rr: '18' });
-    } else {
-      setEncounterVitals({ bp: '120/80', hr: '74', spo2: '99', temp: '98.6', rr: '16' });
+    // Clean Manual Vitals Entry - No mock/dummy vitals generation
+    let bp = '';
+    let hr = '';
+    let spo2 = '';
+    let temp = '';
+    let rr = '';
+
+    const existing = patient.doctor_notes || '';
+    if (existing.includes('[VITALS')) {
+      const bpMatch = existing.match(/BP:\s*([\d/]+)/i);
+      const hrMatch = existing.match(/HR:\s*(\d+)/i);
+      const spo2Match = existing.match(/SpO2:\s*(\d+)/i);
+      const tempMatch = existing.match(/Temp:\s*([\d.]+)/i);
+      const rrMatch = existing.match(/RR:\s*(\d+)/i);
+      if (bpMatch) bp = bpMatch[1];
+      if (hrMatch) hr = hrMatch[1];
+      if (spo2Match) spo2 = spo2Match[1];
+      if (tempMatch) temp = tempMatch[1];
+      if (rrMatch) rr = rrMatch[1];
     }
+    setEncounterVitals({ bp, hr, spo2, temp, rr });
 
-    const aiRecs = getAiRecommendations(patient);
+    // Doctor's Clinical Consultation Note
+    let note = '';
+    if (existing) {
+      if (existing.includes('[CLINICAL CONSULTATION NOTE]')) {
+        const parts = existing.split('[CLINICAL CONSULTATION NOTE]');
+        if (parts[1]) {
+          const rest = parts[1].split(/\[PRESCRIPTIONS\]|\[TESTS & LABS ORDERED\]/)[0];
+          note = rest.trim();
+        }
+      } else if (!existing.includes('[CLINICAL ENCOUNTER') && !existing.includes('[CLINICAL CONSULTATION')) {
+        note = existing;
+      }
+    }
+    setClinicalNote(note);
 
-    // Parse existing notes or initialize fresh SOAP
-    if (patient.doctor_notes && (patient.doctor_notes.includes('[SOAP') || patient.doctor_notes.includes('Subjective'))) {
-      setSoapNotes({
-        subjective: patient.raw_symptom_text ? `Patient presents with: "${patient.raw_symptom_text}"` : '',
-        objective: 'Vitals documented. Patient alert, oriented x 3. Clinical observations recorded.',
-        assessment: aiRecs ? aiRecs.differentials[0] : 'Clinical appraisal completed.',
-        plan: patient.doctor_notes
+    // Prescriptions Suite
+    let rx = '';
+    if (existing.includes('[PRESCRIPTIONS')) {
+      const parts = existing.split(/\[PRESCRIPTIONS(?: ISSUED)?\]/);
+      if (parts[1]) {
+        const rest = parts[1].split(/\[TESTS & LABS ORDERED\]|\[DIAGNOSTIC ORDERS\]/)[0];
+        rx = rest.trim();
+      }
+    }
+    setRxNotes(rx);
+
+    // Tests and Labs
+    const labs = [];
+    if (existing.includes('[TESTS & LABS ORDERED]') || existing.includes('[DIAGNOSTIC ORDERS]')) {
+      COMMON_LAB_ORDERS.forEach(order => {
+        if (existing.includes(order)) labs.push(order);
       });
-      setRxNotes('');
-      setSelectedLabOrders([]);
-    } else {
-      setSoapNotes({
-        subjective: patient.raw_symptom_text 
-          ? `Chief Complaint: "${patient.raw_symptom_text}". Symptoms reviewed with patient during consultation.`
-          : 'Patient presents for clinical triage evaluation.',
-        objective: 'General: Patient alert, responsive, oriented x 3, in no acute distress.\nCardiovascular: Regular rate and rhythm, normal S1/S2.\nRespiratory: Clear to auscultation bilaterally, unlabored breathing.',
-        assessment: aiRecs && aiRecs.differentials.length > 0 
-          ? `Primary Impression: ${aiRecs.differentials[0]}\nDifferentials: ${aiRecs.differentials.slice(1, 3).join(', ')}`
-          : 'Clinical condition consistent with presenting symptoms.',
-        plan: aiRecs ? aiRecs.suggestedPlan : '1. Supportive outpatient therapy.\n2. Prescriptions issued.\n3. Follow up if symptoms worsen.'
-      });
-      setRxNotes('');
-      setSelectedLabOrders(aiRecs && aiRecs.recommendedWorkup.length > 0 ? [aiRecs.recommendedWorkup[0]] : []);
     }
-  };
-
-  const applyAiToAssessment = (recs) => {
-    if (!recs) return;
-    const aiSummary = `Primary: ${recs.differentials[0]}\nDifferentials: ${recs.differentials.slice(1).join('; ')}\nSafety Watch: ${recs.redFlags.join(', ')}`;
-    setSoapNotes(prev => ({
-      ...prev,
-      assessment: prev.assessment ? `${prev.assessment}\n\n[AI Clinical Differential]:\n${aiSummary}` : aiSummary,
-      plan: prev.plan ? `${prev.plan}\n\n[AI Clinical Plan]:\n${recs.suggestedPlan}` : recs.suggestedPlan
-    }));
-    if (recs.recommendedWorkup && recs.recommendedWorkup.length > 0) {
-      setSelectedLabOrders(prev => Array.from(new Set([...prev, ...recs.recommendedWorkup])));
-    }
-    toast.success('AI diagnostic differential & lab orders applied to SOAP!');
+    setSelectedLabOrders(labs);
   };
 
   const addPrescriptionPreset = (rxString) => {
@@ -799,21 +672,34 @@ export default function Dashboard({ onLogout }) {
   const compileEncounterSummary = () => {
     const docName = encounterPatient?.assigned_to || currentUsername || 'Bob';
     const lines = [
-      `[CLINICAL ENCOUNTER & DISCHARGE NOTE - Dr. ${docName}]`,
-      `Encounter Date/Time: ${new Date().toLocaleString()}`,
-      `\n[VITALS] BP: ${encounterVitals.bp} mmHg | HR: ${encounterVitals.hr} bpm | SpO2: ${encounterVitals.spo2}% | Temp: ${encounterVitals.temp}°F | RR: ${encounterVitals.rr}/min`,
-      `\n[SOAP DOCUMENTATION]`,
-      `• S (Subjective): ${soapNotes.subjective || 'Reviewed with patient'}`,
-      `• O (Objective): ${soapNotes.objective || 'Physical exam unremarkable'}`,
-      `• A (Assessment): ${soapNotes.assessment || 'Clinical impression noted'}`,
-      `• P (Plan): ${soapNotes.plan || 'Routine post-consultation care'}`
+      `[CLINICAL CONSULTATION & DISCHARGE SUMMARY - Dr. ${docName}]`,
+      `Encounter Date/Time: ${new Date().toLocaleString()}`
     ];
+
+    // Manual Vitals recorded by clinician
+    const vitalsList = [];
+    if (encounterVitals.bp) vitalsList.push(`BP: ${encounterVitals.bp} mmHg`);
+    if (encounterVitals.hr) vitalsList.push(`HR: ${encounterVitals.hr} bpm`);
+    if (encounterVitals.spo2) vitalsList.push(`SpO2: ${encounterVitals.spo2}%`);
+    if (encounterVitals.temp) vitalsList.push(`Temp: ${encounterVitals.temp}°F`);
+    if (encounterVitals.rr) vitalsList.push(`RR: ${encounterVitals.rr}/min`);
+
+    if (vitalsList.length > 0) {
+      lines.push(`\n[VITALS RECORDED]\n${vitalsList.join(' | ')}`);
+    }
+
+    if (clinicalNote.trim()) {
+      lines.push(`\n[CLINICAL CONSULTATION NOTE]\n${clinicalNote.trim()}`);
+    }
+
     if (rxNotes.trim()) {
-      lines.push(`\n[PRESCRIPTIONS ISSUED]\n${rxNotes.trim()}`);
+      lines.push(`\n[PRESCRIPTIONS]\n${rxNotes.trim()}`);
     }
+
     if (selectedLabOrders.length > 0) {
-      lines.push(`\n[DIAGNOSTIC ORDERS]\n${selectedLabOrders.map(o => `• ${o}`).join('\n')}`);
+      lines.push(`\n[TESTS & LABS ORDERED]\n${selectedLabOrders.map(o => `• ${o}`).join('\n')}`);
     }
+
     return lines.join('\n');
   };
 
@@ -827,7 +713,7 @@ export default function Dashboard({ onLogout }) {
       summary
     );
     if (ok) {
-      toast.success('Clinical encounter draft saved to EHR.');
+      toast.success('Clinical encounter draft saved to patient chart.');
     }
   };
 
@@ -1450,10 +1336,10 @@ export default function Dashboard({ onLogout }) {
                               <div>
                                 <p className="font-extrabold text-gray-900 dark:text-white text-sm">{appt.patient_name}</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                  <Phone className="w-3 h-3" /> {appt.contact_info}
+                                  <Phone className="w-3 h-3 text-gray-400" /> {appt.contact_info}
                                 </p>
                                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 dark:text-teal-400 mt-0.5">
-                                  <Stethoscope className="w-3 h-3" /> Dr. {appt.assigned_to || currentUsername}
+                                  <Stethoscope className="w-3 h-3 text-teal-500" /> Dr. {appt.assigned_to || currentUsername}
                                 </span>
                               </div>
                             </div>
@@ -1505,17 +1391,6 @@ export default function Dashboard({ onLogout }) {
                                 title="Open Dedicated Clinical Encounter Suite"
                               >
                                 <Stethoscope className="w-3.5 h-3.5" /> Start Consult
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  openClinicalEncounter(appt);
-                                  setEncounterTab('soap');
-                                }}
-                                className="p-2 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition"
-                                title="Discharge / Complete Consultation"
-                              >
-                                <CheckCircle2 className="w-4 h-4" />
                               </button>
 
                               <button
@@ -2106,15 +1981,38 @@ export default function Dashboard({ onLogout }) {
 
               {/* Encounter Scrollable Body */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* 1. Vital Signs Monitoring Cards */}
+                {/* 1. Patient Info & Reported Intake Symptoms */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-teal-600" /> Patient Reported Intake Symptoms
+                    </h4>
+                    <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+                      {encounterPatient.submission_time ? new Date(encounterPatient.submission_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Intake recorded'}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-900 dark:text-white font-medium italic bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                    "{encounterPatient.raw_symptom_text}"
+                  </p>
+                  {encounterPatient.critical_keywords && encounterPatient.critical_keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2.5">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase">Triage Red Flags:</span>
+                      {encounterPatient.critical_keywords.map((kw, i) => (
+                        <span key={i} className="text-[10px] font-bold uppercase px-2 py-0.5 bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-200 rounded-md">
+                          ⚠️ {kw}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Manual Vitals Entry by Doctor */}
                 <div>
                   <div className="flex items-center justify-between mb-2.5">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-400 flex items-center gap-1.5">
-                      <Activity className="w-4 h-4 text-teal-600" /> Vital Signs & Clinical Biometrics
+                      <Activity className="w-4 h-4 text-teal-600" /> Manual Vitals Entry (Recorded by Clinician)
                     </h4>
-                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" /> Physiological Baseline
-                    </span>
+                    <span className="text-[11px] text-gray-400">Enter measured clinical vitals</span>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
@@ -2128,8 +2026,8 @@ export default function Dashboard({ onLogout }) {
                         type="text" 
                         value={encounterVitals.bp} 
                         onChange={(e) => setEncounterVitals(v => ({ ...v, bp: e.target.value }))}
-                        className="w-full mt-1 font-extrabold text-sm text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-teal-500"
-                        placeholder="120/80"
+                        className="w-full mt-1 font-bold text-sm text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-teal-500"
+                        placeholder="e.g. 120/80"
                       />
                       <span className="text-[10px] text-gray-400">mmHg</span>
                     </div>
@@ -2144,8 +2042,8 @@ export default function Dashboard({ onLogout }) {
                         type="text" 
                         value={encounterVitals.hr} 
                         onChange={(e) => setEncounterVitals(v => ({ ...v, hr: e.target.value }))}
-                        className="w-full mt-1 font-extrabold text-sm text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-teal-500"
-                        placeholder="76"
+                        className="w-full mt-1 font-bold text-sm text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-teal-500"
+                        placeholder="e.g. 72"
                       />
                       <span className="text-[10px] text-gray-400">bpm</span>
                     </div>
@@ -2160,26 +2058,26 @@ export default function Dashboard({ onLogout }) {
                         type="text" 
                         value={encounterVitals.spo2} 
                         onChange={(e) => setEncounterVitals(v => ({ ...v, spo2: e.target.value }))}
-                        className="w-full mt-1 font-extrabold text-sm text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-teal-500"
-                        placeholder="98"
+                        className="w-full mt-1 font-bold text-sm text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-teal-500"
+                        placeholder="e.g. 98"
                       />
-                      <span className="text-[10px] text-gray-400">% room air</span>
+                      <span className="text-[10px] text-gray-400">%</span>
                     </div>
 
                     {/* Temp */}
                     <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 text-[10px] font-bold uppercase">
-                        <span>Temp</span>
+                        <span>Temperature</span>
                         <Thermometer className="w-3 h-3 text-amber-500" />
                       </div>
                       <input 
                         type="text" 
                         value={encounterVitals.temp} 
                         onChange={(e) => setEncounterVitals(v => ({ ...v, temp: e.target.value }))}
-                        className="w-full mt-1 font-extrabold text-sm text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-teal-500"
-                        placeholder="98.6"
+                        className="w-full mt-1 font-bold text-sm text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-teal-500"
+                        placeholder="e.g. 98.6"
                       />
-                      <span className="text-[10px] text-gray-400">°F Oral</span>
+                      <span className="text-[10px] text-gray-400">°F</span>
                     </div>
 
                     {/* RR */}
@@ -2192,136 +2090,38 @@ export default function Dashboard({ onLogout }) {
                         type="text" 
                         value={encounterVitals.rr} 
                         onChange={(e) => setEncounterVitals(v => ({ ...v, rr: e.target.value }))}
-                        className="w-full mt-1 font-extrabold text-sm text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-teal-500"
-                        placeholder="16"
+                        className="w-full mt-1 font-bold text-sm text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-teal-500"
+                        placeholder="e.g. 16"
                       />
                       <span className="text-[10px] text-gray-400">breaths/min</span>
                     </div>
                   </div>
                 </div>
 
-                {/* 2. AI Clinical Decision Support (CDS) Recommendations */}
-                {(() => {
-                  const recs = getAiRecommendations(encounterPatient);
-                  if (!recs) return null;
-
-                  return (
-                    <div className="p-4 bg-gradient-to-br from-indigo-50/70 to-purple-50/70 dark:from-indigo-950/30 dark:to-purple-950/30 rounded-2xl border border-indigo-200/70 dark:border-indigo-800/60 shadow-sm">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-200">
-                            AI Clinical Decision Support & Differential Diagnosis
-                          </h4>
-                        </div>
-                        <button
-                          onClick={() => applyAiToAssessment(recs)}
-                          className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm"
-                        >
-                          <Sparkles className="w-3 h-3" /> Apply to Assessment
-                        </button>
-                      </div>
-
-                      <div className="space-y-2.5 text-xs">
-                        <div>
-                          <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Differential Diagnoses Considered:</p>
-                          <ul className="list-disc pl-4 space-y-0.5 text-gray-800 dark:text-gray-200 font-medium">
-                            {recs.differentials.map((diff, i) => (
-                              <li key={i}>{diff}</li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        {recs.redFlags.length > 0 && (
-                          <div className="pt-2 border-t border-indigo-100 dark:border-indigo-900/40">
-                            <p className="font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                              <AlertTriangle className="w-3.5 h-3.5" /> High Risk Safety Watch:
-                            </p>
-                            <p className="text-gray-700 dark:text-gray-300 mt-0.5">{recs.redFlags.join(' • ')}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 3. SOAP Clinical Documentation Suite */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                      <ClipboardList className="w-4 h-4 text-teal-600" /> SOAP Clinical Encounter Notes
+                {/* 3. Doctor's Clinical Consultation Note */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
+                      <ClipboardList className="w-4 h-4 text-teal-600" /> Doctor's Clinical Consultation Note
                     </h4>
-                    <span className="text-[11px] text-gray-400">Structured Medical Documentation</span>
+                    <span className="text-[11px] text-gray-400">Clinical observations, exam findings & diagnosis</span>
                   </div>
-
-                  {/* S - Subjective */}
-                  <div>
-                    <label className="block text-xs font-bold text-teal-800 dark:text-teal-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-md bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300 flex items-center justify-center text-xs font-black">S</span>
-                      Subjective (History & Presenting Complaint)
-                    </label>
-                    <textarea
-                      rows="2"
-                      value={soapNotes.subjective}
-                      onChange={(e) => setSoapNotes(n => ({ ...n, subjective: e.target.value }))}
-                      placeholder="Patient's stated symptoms, onset, severity, aggravating/alleviating factors..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-750 dark:text-white text-xs font-medium focus:ring-2 focus:ring-teal-500 shadow-sm"
-                    />
-                  </div>
-
-                  {/* O - Objective */}
-                  <div>
-                    <label className="block text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-black">O</span>
-                      Objective (Physical Examination & Vital Correlation)
-                    </label>
-                    <textarea
-                      rows="3"
-                      value={soapNotes.objective}
-                      onChange={(e) => setSoapNotes(n => ({ ...n, objective: e.target.value }))}
-                      placeholder="General appearance, HEENT, cardiovascular, respiratory, abdominal exam findings..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-750 dark:text-white text-xs font-medium focus:ring-2 focus:ring-teal-500 shadow-sm"
-                    />
-                  </div>
-
-                  {/* A - Assessment */}
-                  <div>
-                    <label className="block text-xs font-bold text-purple-800 dark:text-purple-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-md bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 flex items-center justify-center text-xs font-black">A</span>
-                      Assessment (Clinical Diagnosis & Differential)
-                    </label>
-                    <textarea
-                      rows="2"
-                      value={soapNotes.assessment}
-                      onChange={(e) => setSoapNotes(n => ({ ...n, assessment: e.target.value }))}
-                      placeholder="Working diagnosis, differential diagnostic ranking, disease severity..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-750 dark:text-white text-xs font-medium focus:ring-2 focus:ring-teal-500 shadow-sm"
-                    />
-                  </div>
-
-                  {/* P - Plan */}
-                  <div>
-                    <label className="block text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-md bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-xs font-black">P</span>
-                      Plan (Therapeutic Strategy, Prescriptions, Follow-Up)
-                    </label>
-                    <textarea
-                      rows="2"
-                      value={soapNotes.plan}
-                      onChange={(e) => setSoapNotes(n => ({ ...n, plan: e.target.value }))}
-                      placeholder="Medical regimen, patient counseling, return precautions, follow-up timeline..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-750 dark:text-white text-xs font-medium focus:ring-2 focus:ring-teal-500 shadow-sm"
-                    />
-                  </div>
+                  <textarea
+                    rows="4"
+                    value={clinicalNote}
+                    onChange={(e) => setClinicalNote(e.target.value)}
+                    placeholder="Document clinical observations, diagnosis, exam findings, and management instructions..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-750 dark:text-white text-xs font-medium focus:ring-2 focus:ring-teal-500 shadow-sm leading-relaxed"
+                  />
                 </div>
 
-                {/* 4. Prescription Orders Suite */}
+                {/* 4. Prescriptions Suite (Medication, Dosage, Instructions) */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
-                      <Pill className="w-4 h-4 text-teal-600" /> Prescriptions & Medication Orders
+                      <Pill className="w-4 h-4 text-teal-600" /> Prescriptions Suite (Medication, Dosage, Instructions)
                     </label>
-                    <span className="text-[11px] text-gray-400">Click chips to quickly append common Rx</span>
+                    <span className="text-[11px] text-gray-400">Click chips to quickly append Rx</span>
                   </div>
 
                   {/* Presets Chips */}
@@ -2342,15 +2142,15 @@ export default function Dashboard({ onLogout }) {
                     rows="3"
                     value={rxNotes}
                     onChange={(e) => setRxNotes(e.target.value)}
-                    placeholder="Enter prescribed medications, dosage, frequency, duration (e.g. Amoxicillin 500mg PO TID x 7 days)..."
+                    placeholder="Enter prescribed medications, dosage, frequency, and instructions (e.g. Amoxicillin 500mg PO TID x 7 days)..."
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-750 dark:text-white text-xs font-mono focus:ring-2 focus:ring-teal-500 shadow-sm"
                   />
                 </div>
 
-                {/* 5. Diagnostic Lab & Imaging Orders */}
+                {/* 5. Tests and Labs (Laboratory & Diagnostic orders) */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
-                    <FileCheck className="w-4 h-4 text-indigo-600" /> Diagnostic Investigations & Lab Workup
+                    <FileCheck className="w-4 h-4 text-indigo-600" /> Tests and Labs (Laboratory & Diagnostic Orders)
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {COMMON_LAB_ORDERS.map((order, idx) => {
@@ -2379,12 +2179,12 @@ export default function Dashboard({ onLogout }) {
                 </div>
               </div>
 
-              {/* Drawer Sticky Footer with One-Click Complete & Discharge */}
+              {/* Drawer Sticky Footer with 1-Click Complete Consultation / Discharge */}
               <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50/90 dark:bg-gray-900/80 flex items-center gap-3">
                 <button
                   onClick={handleSaveEncounterDraft}
                   className="py-3 px-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-bold hover:bg-gray-100 transition shadow-sm"
-                  title="Save current encounter draft without discharging"
+                  title="Save current encounter notes without discharging"
                 >
                   Save Draft
                 </button>
