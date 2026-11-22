@@ -94,14 +94,14 @@ except Exception as e:
     print(f"Warning: Could not load AI model at {MODEL_PATH}. Error: {e}")
 
 # --- CLINIC TIMEZONE CONFIGURATION ---
-# SEGi University Clinic operating timezone: Malaysia Time (MYT / UTC+8)
+# Clinic standard operating hours (09:00 - 17:00). Internal reference: UTC+8
 CLINIC_TZ = timezone(timedelta(hours=8))
 
 class CalendarManager:
     @staticmethod
     def ensure_clinic_tz(dt: Union[datetime, str]) -> datetime:
         """
-        Normalize a datetime or ISO string to Malaysia Time (CLINIC_TZ, UTC+8).
+        Normalize a datetime or ISO string to clinic standard time.
         If naive, sets tzinfo=CLINIC_TZ.
         If aware, converts to CLINIC_TZ using astimezone.
         """
@@ -112,11 +112,22 @@ class CalendarManager:
         return dt.astimezone(CLINIC_TZ)
 
     @staticmethod
+    def to_clean_iso(dt: Union[datetime, str]) -> str:
+        """Output clean standard ISO without browser-shifting offsets: YYYY-MM-DDTHH:mm:00"""
+        cdt = CalendarManager.ensure_clinic_tz(dt)
+        return cdt.strftime("%Y-%m-%dT%H:%M:00")
+
+    @staticmethod
+    def now_clinic() -> datetime:
+        """Current clinic wall-clock time as naive datetime."""
+        return datetime.now(timezone.utc).astimezone(CLINIC_TZ).replace(tzinfo=None)
+
+    @staticmethod
     def _round_to_slot(dt: datetime) -> datetime:
-        """Round a datetime to the nearest 30-minute block in Malaysia Time."""
+        """Round a datetime to the nearest 30-minute block."""
         is_naive = (dt.tzinfo is None)
         if not is_naive:
-            dt = dt.astimezone(CLINIC_TZ)
+            dt = dt.astimezone(CLINIC_TZ).replace(tzinfo=None)
         discard = timedelta(minutes=dt.minute % 30, seconds=dt.second, microseconds=dt.microsecond)
         dt -= discard
         if discard >= timedelta(minutes=15):
@@ -126,11 +137,11 @@ class CalendarManager:
     @staticmethod
     def _enforce_business_hours(dt: datetime) -> datetime:
         """
-        Push time into 9 AM - 5 PM window strictly in Malaysia Time (MYT / UTC+8).
-        Operating hours: 09:00 - 17:00 MYT (slots from 09:00 to 16:30).
+        Push time into 9 AM - 5 PM window.
+        Operating hours: 09:00 - 17:00 (slots from 09:00 to 16:30).
         """
         if dt.tzinfo is not None:
-            dt = dt.astimezone(CLINIC_TZ)
+            dt = dt.astimezone(CLINIC_TZ).replace(tzinfo=None)
         if dt.hour < 9:
             dt = dt.replace(hour=9, minute=0, second=0, microsecond=0)
         elif dt.hour >= 17:
@@ -140,10 +151,10 @@ class CalendarManager:
     @staticmethod
     async def get_next_available_slot(urgency: str) -> datetime:
         """
-        Calculate next available slot in Malaysia Time (MYT / UTC+8).
-        Operating hours: 09:00 to 17:00 MYT, 30-minute clinic slots.
+        Calculate next available slot.
+        Operating hours: 09:00 to 17:00, 30-minute clinic slots.
         """
-        now = datetime.now(timezone.utc).astimezone(CLINIC_TZ)
+        now = CalendarManager.now_clinic()
         if urgency == "Emergency":
             scheduled = now + timedelta(minutes=30)
         elif urgency == "Urgent":
@@ -175,11 +186,11 @@ class CalendarManager:
     @staticmethod
     async def preempt_for_emergency(background_tasks: BackgroundTasks) -> datetime:
         """
-        Emergency Preemption in Malaysia Time (MYT):
+        Emergency Preemption:
         Find the earliest pending non-emergency appointment, steal its time slot
         for the emergency patient, and reschedule the bumped patient.
         """
-        now = datetime.now(timezone.utc).astimezone(CLINIC_TZ)
+        now = CalendarManager.now_clinic()
         
         # Find the earliest scheduled non-emergency pending appointment
         bumped = await db.appointments.find_one(
@@ -196,7 +207,13 @@ class CalendarManager:
             return await CalendarManager.get_next_available_slot("Emergency")
         
         # Steal the bumped patient's time slot
-        stolen_time = CalendarManager.ensure_clinic_tz(bumped["scheduled_time"])
+        stolen_raw = bumped["scheduled_time"]
+        if isinstance(stolen_raw, str):
+            stolen_time = CalendarManager.ensure_clinic_tz(stolen_raw).replace(tzinfo=None)
+        elif hasattr(stolen_raw, "tzinfo") and stolen_raw.tzinfo is not None:
+            stolen_time = stolen_raw.astimezone(CLINIC_TZ).replace(tzinfo=None)
+        else:
+            stolen_time = stolen_raw
         
         # Find a new slot for the bumped patient (search AFTER the stolen slot)
         new_slot_for_bumped = CalendarManager._round_to_slot(stolen_time + timedelta(minutes=30))
@@ -217,15 +234,17 @@ class CalendarManager:
                 break
         
         # Update the bumped patient's record in MongoDB
+        clean_new_slot = new_slot_for_bumped.replace(tzinfo=None) if hasattr(new_slot_for_bumped, "replace") else new_slot_for_bumped
+        clean_stolen_time = stolen_time.replace(tzinfo=None) if hasattr(stolen_time, "replace") else stolen_time
         await db.appointments.update_one(
             {"_id": bumped["_id"]},
             {"$set": {
-                "scheduled_time": new_slot_for_bumped,
+                "scheduled_time": clean_new_slot,
                 "clinic_date": new_slot_for_bumped.strftime("%Y-%m-%d"),
                 "clinic_slot": new_slot_for_bumped.strftime("%H:%M"),
                 "preempted": True,
                 "preempted_at": now,
-                "original_time": stolen_time,
+                "original_time": clean_stolen_time,
                 "preempt_reason": "Rescheduled due to incoming Emergency patient"
             }}
         )
@@ -234,8 +253,8 @@ class CalendarManager:
         await db.preemption_log.insert_one({
             "bumped_patient": bumped["patient_name"],
             "bumped_username": bumped["username"],
-            "original_time": stolen_time,
-            "new_time": new_slot_for_bumped,
+            "original_time": clean_stolen_time,
+            "new_time": clean_new_slot,
             "reason": "Emergency patient preemption",
             "timestamp": now
         })
@@ -247,8 +266,8 @@ class CalendarManager:
                 send_reschedule_email,
                 bumped_user["email"],
                 bumped["patient_name"],
-                stolen_time,
-                new_slot_for_bumped
+                clean_stolen_time,
+                clean_new_slot
             )
         
         # Send SMS notification to the bumped patient (if Twilio is configured)
@@ -257,13 +276,12 @@ class CalendarManager:
                 send_sms_notification,
                 bumped_user["mobile"],
                 bumped["patient_name"],
-                stolen_time,
-                new_slot_for_bumped
+                clean_stolen_time,
+                clean_new_slot
             )
-        
-        print(f"--- PREEMPTION: {bumped['patient_name']} bumped from {stolen_time} to {new_slot_for_bumped} ---")
-        
-        return stolen_time
+            
+        print(f"--- PREEMPTION: {bumped['patient_name']} bumped from {clean_stolen_time} to {clean_new_slot} ---")
+        return clean_stolen_time
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://baruaprotik234972_db_user:vY0FHCnBb8q1Pe1c@cluster0.c0pht6s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 client = AsyncIOMotorClient(MONGO_URI)
@@ -744,6 +762,8 @@ async def submit_symptoms(request: SymptomRequest, background_tasks: BackgroundT
     clinic_dt = CalendarManager.ensure_clinic_tz(scheduled_time)
     clinic_date = clinic_dt.strftime("%Y-%m-%d")
     clinic_slot = clinic_dt.strftime("%H:%M")
+    clean_iso = clinic_dt.strftime("%Y-%m-%dT%H:%M:00")
+    clean_scheduled_dt = clinic_dt.replace(tzinfo=None)
     
     appointment = {
         "username": current_user["username"],
@@ -755,7 +775,7 @@ async def submit_symptoms(request: SymptomRequest, background_tasks: BackgroundT
         "triage_source": source,
         "ai_confidence": round(float(confidence), 4),
         "submission_time": datetime.now(timezone.utc),
-        "scheduled_time": scheduled_time,
+        "scheduled_time": clean_scheduled_dt,
         "clinic_date": clinic_date,
         "clinic_slot": clinic_slot,
         "final_status": "Pending"
@@ -784,6 +804,7 @@ async def submit_symptoms(request: SymptomRequest, background_tasks: BackgroundT
         
         response_data = appointment.copy()
         response_data["_id"] = str(result.inserted_id)
+        response_data["scheduled_time"] = clean_iso
         
         return {
             "message": "Symptoms successfully triaged and recorded.",
@@ -820,6 +841,7 @@ async def get_queue(current_user: dict = Depends(get_current_user)):
                     appt["clinic_date"] = cdt.strftime("%Y-%m-%d")
                 if not appt.get("clinic_slot"):
                     appt["clinic_slot"] = cdt.strftime("%H:%M")
+                appt["scheduled_time"] = cdt.strftime("%Y-%m-%dT%H:%M:00")
             
         return {"queue": appointments}
     except Exception as e:
@@ -870,8 +892,8 @@ def send_real_email(patient_email: str, patient_name: str, doctor_name: str, sch
             <p style="font-size: 16px; color: #374151;">Dear <strong>{patient_name}</strong>,</p>
             <p style="color: #6b7280;">You have been assigned to <strong>Dr. {doctor_name}</strong>.</p>
             <div style="background: #f0fdf4; border-left: 4px solid #22c55e; padding: 16px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0; color: #166534; font-weight: bold;">📅 Scheduled Time (Malaysia Time / MYT)</p>
-                <p style="margin: 5px 0 0; color: #15803d; font-size: 18px;">{scheduled_time.strftime('%B %d, %Y at %I:%M %p (MYT)')}</p>
+                <p style="margin: 0; color: #166534; font-weight: bold;">📅 Scheduled Time</p>
+                <p style="margin: 5px 0 0; color: #15803d; font-size: 18px;">{scheduled_time.strftime('%B %d, %Y at %I:%M %p')}</p>
             </div>
             <p style="color: #6b7280;"><strong>Doctor's Notes:</strong><br>{notes if notes else 'No additional notes.'}</p>
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
@@ -896,12 +918,12 @@ def send_reschedule_email(patient_email: str, patient_name: str, old_time: datet
             <p style="color: #6b7280;">Your appointment has been rescheduled due to an incoming <strong style="color: #ef4444;">emergency case</strong> that requires immediate priority.</p>
             <div style="display: flex; gap: 12px; margin: 20px 0;">
                 <div style="flex: 1; background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; border-radius: 8px;">
-                    <p style="margin: 0; color: #991b1b; font-weight: bold; font-size: 12px;">❌ PREVIOUS TIME (MYT)</p>
-                    <p style="margin: 5px 0 0; color: #dc2626; font-size: 15px; text-decoration: line-through;">{old_time.strftime('%B %d, %Y')}<br>{old_time.strftime('%I:%M %p (MYT)')}</p>
+                    <p style="margin: 0; color: #991b1b; font-weight: bold; font-size: 12px;">❌ PREVIOUS TIME</p>
+                    <p style="margin: 5px 0 0; color: #dc2626; font-size: 15px; text-decoration: line-through;">{old_time.strftime('%B %d, %Y')}<br>{old_time.strftime('%I:%M %p')}</p>
                 </div>
                 <div style="flex: 1; background: #f0fdf4; border-left: 4px solid #22c55e; padding: 16px; border-radius: 8px;">
-                    <p style="margin: 0; color: #166534; font-weight: bold; font-size: 12px;">✅ NEW TIME (MYT)</p>
-                    <p style="margin: 5px 0 0; color: #15803d; font-size: 15px; font-weight: bold;">{new_time.strftime('%B %d, %Y')}<br>{new_time.strftime('%I:%M %p (MYT)')}</p>
+                    <p style="margin: 0; color: #166534; font-weight: bold; font-size: 12px;">✅ NEW TIME</p>
+                    <p style="margin: 5px 0 0; color: #15803d; font-size: 15px; font-weight: bold;">{new_time.strftime('%B %d, %Y')}<br>{new_time.strftime('%I:%M %p')}</p>
                 </div>
             </div>
             <p style="color: #6b7280;">We sincerely apologize for any inconvenience. If this new time does not work for you, please contact the clinic coordinator.</p>
@@ -925,8 +947,8 @@ def send_emergency_confirmation_email(patient_email: str, patient_name: str, sch
             <p style="font-size: 16px; color: #374151;">Dear <strong>{patient_name}</strong>,</p>
             <p style="color: #6b7280;">Your symptoms have been classified as an <strong style="color: #dc2626;">EMERGENCY</strong> by our AI triage system. You have been <strong>fast-tracked</strong> to the earliest available appointment slot.</p>
             <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 16px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0; color: #991b1b; font-weight: bold;">🚨 Your Emergency Appointment (Malaysia Time / MYT)</p>
-                <p style="margin: 5px 0 0; color: #dc2626; font-size: 20px; font-weight: bold;">{scheduled_time.strftime('%B %d, %Y at %I:%M %p (MYT)')}</p>
+                <p style="margin: 0; color: #991b1b; font-weight: bold;">🚨 Your Emergency Appointment</p>
+                <p style="margin: 5px 0 0; color: #dc2626; font-size: 20px; font-weight: bold;">{scheduled_time.strftime('%B %d, %Y at %I:%M %p')}</p>
             </div>
             <p style="color: #6b7280;">Please arrive as early as possible. A coordinator will be in touch shortly to prepare for your visit.</p>
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
@@ -1165,6 +1187,7 @@ async def get_all_appointments(current_user: dict = Depends(get_current_user)):
                 appt["clinic_date"] = cdt.strftime("%Y-%m-%d")
             if not appt.get("clinic_slot"):
                 appt["clinic_slot"] = cdt.strftime("%H:%M")
+            appt["scheduled_time"] = cdt.strftime("%Y-%m-%dT%H:%M:00")
     return {"appointments": appointments}
 
 class ScheduleOverride(BaseModel):
@@ -1181,11 +1204,12 @@ async def override_schedule(appointment_id: str, override: ScheduleOverride, cur
     clinic_dt = CalendarManager.ensure_clinic_tz(override.new_time)
     clinic_date = clinic_dt.strftime("%Y-%m-%d")
     clinic_slot = clinic_dt.strftime("%H:%M")
+    clean_dt = clinic_dt.replace(tzinfo=None)
         
     result = await db.appointments.update_one(
         {"_id": ObjectId(appointment_id)},
         {"$set": {
-            "scheduled_time": clinic_dt,
+            "scheduled_time": clean_dt,
             "clinic_date": clinic_date,
             "clinic_slot": clinic_slot,
             "schedule_overridden_by": current_user["username"]
@@ -1390,7 +1414,7 @@ async def get_analytics(timeframe: Optional[str] = "all", current_user: dict = D
                     "raw_symptom_text": a.get("raw_symptom_text", ""),
                     "critical_keywords": a.get("critical_keywords", []),
                     "submission_time": a.get("submission_time").isoformat() if isinstance(a.get("submission_time"), datetime) else str(a.get("submission_time") or ""),
-                    "scheduled_time": a.get("scheduled_time").isoformat() if isinstance(a.get("scheduled_time"), datetime) else str(a.get("scheduled_time") or ""),
+                    "scheduled_time": CalendarManager.to_clean_iso(a.get("scheduled_time")) if a.get("scheduled_time") else "",
                     "final_status": a.get("final_status", "Pending"),
                     "assigned_to": a.get("assigned_to") or "Unassigned",
                     "preempted": a.get("preempted", False)

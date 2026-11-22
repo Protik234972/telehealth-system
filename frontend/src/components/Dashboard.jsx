@@ -11,9 +11,19 @@ import toast from 'react-hot-toast';
 import { API_URL, WS_URL } from '../config';
 
 // ============================================================
-// CLINIC TIMEZONE HELPERS (Malaysia Standard Time, Asia/Kuala_Lumpur, UTC+8)
+// UNIVERSAL WALL-CLOCK TIME HELPERS (No Timezone Shift)
 // ============================================================
-export const getClinicSlotInfo = (dateInput) => {
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+const SHORT_MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+];
+
+export const getSlotInfo = (dateInput) => {
   if (!dateInput) return { clinicDate: '', clinicSlot: '' };
 
   if (typeof dateInput === 'object' && !(dateInput instanceof Date)) {
@@ -21,56 +31,101 @@ export const getClinicSlotInfo = (dateInput) => {
       return { clinicDate: dateInput.clinic_date, clinicSlot: dateInput.clinic_slot };
     }
     if (dateInput.scheduled_time) {
-      return getClinicSlotInfo(dateInput.scheduled_time);
+      return getSlotInfo(dateInput.scheduled_time);
     }
   }
 
-  let d;
-  if (dateInput instanceof Date) {
-    d = dateInput;
-  } else if (typeof dateInput === 'string') {
-    const hasTz = dateInput.endsWith('Z') || /[+-]\d{2}(:?\d{2})?$/.test(dateInput);
-    if (!hasTz && dateInput.includes('T')) {
-      d = new Date(`${dateInput}Z`);
-    } else {
-      d = new Date(dateInput);
+  if (typeof dateInput === 'string') {
+    const match = dateInput.trim().match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
+    if (match) {
+      const [, y, m, d, hh, mm] = match;
+      const slotMin = parseInt(mm, 10) >= 30 ? '30' : '00';
+      return {
+        clinicDate: `${y}-${m}-${d}`,
+        clinicSlot: `${hh}:${slotMin}`
+      };
     }
-  } else {
-    d = new Date(dateInput);
+    const dateOnly = dateInput.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnly) {
+      return { clinicDate: dateOnly[0], clinicSlot: '09:00' };
+    }
   }
 
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
   if (isNaN(d.getTime())) return { clinicDate: '', clinicSlot: '' };
 
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Kuala_Lumpur',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23'
-  });
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hour = String(d.getHours()).padStart(2, '0');
+  const minute = d.getMinutes() >= 30 ? '30' : '00';
 
-  const parts = formatter.formatToParts(d);
-  let year = '', month = '', day = '', hour = '00', minute = '00';
-  for (const p of parts) {
-    if (p.type === 'year') year = p.value;
-    if (p.type === 'month') month = p.value.padStart(2, '0');
-    if (p.type === 'day') day = p.value.padStart(2, '0');
-    if (p.type === 'hour') hour = p.value.padStart(2, '0');
-    if (p.type === 'minute') minute = p.value.padStart(2, '0');
+  return {
+    clinicDate: `${year}-${month}-${day}`,
+    clinicSlot: `${hour}:${minute}`
+  };
+};
+
+export const getClinicSlotInfo = getSlotInfo;
+
+export const formatAppointmentTime = (dateInput, style = 'full') => {
+  if (!dateInput) return '';
+
+  if (typeof dateInput === 'object' && !(dateInput instanceof Date)) {
+    if (dateInput.scheduled_time) return formatAppointmentTime(dateInput.scheduled_time, style);
+    if (dateInput.clinic_date && dateInput.clinic_slot) {
+      return formatAppointmentTime(`${dateInput.clinic_date}T${dateInput.clinic_slot}`, style);
+    }
+    if (dateInput.submission_time) return formatAppointmentTime(dateInput.submission_time, style);
   }
 
-  const clinicDate = `${year}-${month}-${day}`;
-  const slotMin = parseInt(minute, 10) >= 30 ? '30' : '00';
-  const clinicSlot = `${hour}:${slotMin}`;
+  let year = '', month = '', day = '', hh = '00', mm = '00';
 
-  return { clinicDate, clinicSlot };
+  if (typeof dateInput === 'string') {
+    const match = dateInput.trim().match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
+    if (match) {
+      [, year, month, day, hh, mm] = match;
+    } else {
+      const dateOnly = dateInput.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dateOnly) {
+        [, year, month, day] = dateOnly;
+        hh = '09';
+        mm = '00';
+      }
+    }
+  }
+
+  if (!year) {
+    const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    year = String(d.getFullYear());
+    month = String(d.getMonth() + 1).padStart(2, '0');
+    day = String(d.getDate()).padStart(2, '0');
+    hh = String(d.getHours()).padStart(2, '0');
+    mm = String(d.getMinutes()).padStart(2, '0');
+  }
+
+  const hNum = parseInt(hh, 10);
+  const ampm = hNum >= 12 ? 'PM' : 'AM';
+  const h12 = hNum % 12 || 12;
+  const h12Str = String(h12).padStart(2, '0');
+  const timeStr = `${h12Str}:${mm} ${ampm}`;
+
+  const mIdx = parseInt(month, 10) - 1;
+  const fullMonth = MONTH_NAMES[mIdx] || month;
+  const shortMonth = SHORT_MONTHS[mIdx] || month;
+  const dNum = parseInt(day, 10);
+
+  if (style === 'time') return timeStr;
+  if (style === 'date') return `${fullMonth} ${dNum}, ${year}`;
+  if (style === 'shortDate') return `${shortMonth} ${dNum}, ${year}`;
+  if (style === 'medium' || style === 'short') return `${shortMonth} ${dNum}, ${year} at ${timeStr}`;
+  return `${fullMonth} ${dNum}, ${year} at ${timeStr}`;
 };
 
 export const getClinicISOString = (dateInput) => {
   if (!dateInput) return '';
-  const slot = getClinicSlotInfo(dateInput);
+  const slot = getSlotInfo(dateInput);
   if (slot.clinicDate && slot.clinicSlot) {
     return `${slot.clinicDate}T${slot.clinicSlot}`;
   }
@@ -443,7 +498,6 @@ export default function Dashboard({ onLogout }) {
       cascadedQueue.forEach((appt, idx) => {
         if (idx < CLINIC_SLOTS.length) {
           const slot = CLINIC_SLOTS[idx];
-          // Standardize slot to Clinic Standard Time (Malaysia Time, UTC+8)
           const newIso = `${targetDateStr}T${slot}:00+08:00`;
           slotUpdates.push({ id: appt._id, new_time: newIso, slot });
         }
@@ -476,12 +530,10 @@ export default function Dashboard({ onLogout }) {
   const executeScheduleOverride = async () => {
     if (!newSchedule || !scheduleModal) return;
     try {
-      // Ensure the slot sent to backend is formatted in Malaysia Time (UTC+8)
       let timeToSend;
       if (newSchedule.includes('+') || newSchedule.endsWith('Z')) {
         timeToSend = newSchedule;
       } else {
-        // newSchedule is "YYYY-MM-DDTHH:mm", append seconds and Malaysia Timezone offset +08:00
         timeToSend = `${newSchedule}:00+08:00`;
       }
 
@@ -491,7 +543,7 @@ export default function Dashboard({ onLogout }) {
         body: JSON.stringify({ new_time: timeToSend })
       });
       if (response.ok) {
-        toast.success('Schedule manually updated in Malaysia Time');
+        toast.success('Schedule manually updated');
         setScheduleModal(null);
         fetchQueue();
       } else {
@@ -920,7 +972,7 @@ export default function Dashboard({ onLogout }) {
         `"${String(a.ai_urgency_score ?? '').replace(/"/g, '""')}"`,
         `"${String(a.patient_name ?? '').replace(/"/g, '""')}"`,
         `"${String(a.contact_info ?? '').replace(/"/g, '""')}"`,
-        `"${a.scheduled_time ? new Date(a.scheduled_time).toLocaleString() : 'Not Scheduled'}"`,
+        `"${a.scheduled_time ? formatAppointmentTime(a.scheduled_time, 'short') : 'Not Scheduled'}"`,
         `"${(a.final_status === 'Completed' ? 'Completed' : a.final_status === 'Dismissed' ? 'Dismissed' : a.assigned_to ? 'Assigned' : 'Pending')}"`,
         `"${(a.assigned_to ? `Dr. ${a.assigned_to}` : 'Unassigned')}"`,
         `"${String(a.raw_symptom_text ?? '').replace(/\r?\n/g, ' ').replace(/"/g, '""')}"`,
@@ -1163,9 +1215,9 @@ export default function Dashboard({ onLogout }) {
                   </h3>
                   <p className="text-red-100 text-xs mt-0.5">
                     <strong>{preemptionEvents[0]?.bumped_patient}</strong> was rescheduled from{' '}
-                    {preemptionEvents[0]?.original_time && new Date(preemptionEvents[0].original_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                    {preemptionEvents[0]?.original_time && formatAppointmentTime(preemptionEvents[0].original_time, 'short')}
                     {' → '}
-                    {preemptionEvents[0]?.new_time && new Date(preemptionEvents[0].new_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                    {preemptionEvents[0]?.new_time && formatAppointmentTime(preemptionEvents[0].new_time, 'short')}
                     {' '}to accommodate critical emergency triage. Notifications sent.
                   </p>
                 </div>
@@ -1454,7 +1506,7 @@ export default function Dashboard({ onLogout }) {
                               </div>
                               <p className="text-[11px] opacity-90 font-medium">
                                 {appt.scheduled_time 
-                                  ? new Date(appt.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                  ? formatAppointmentTime(appt.scheduled_time, 'time')
                                   : 'Queued intake'}
                               </p>
                             </div>
@@ -1641,7 +1693,7 @@ export default function Dashboard({ onLogout }) {
                         )}
                       </td>
                       <td className="p-4 text-xs text-gray-600 dark:text-gray-400">
-                        {appt.scheduled_time ? new Date(appt.scheduled_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Recorded'}
+                        {appt.scheduled_time ? formatAppointmentTime(appt.scheduled_time, 'short') : 'Recorded'}
                       </td>
                       <td className="p-4 text-right">
                         <button
@@ -1734,10 +1786,10 @@ export default function Dashboard({ onLogout }) {
                             {appt.scheduled_time ? (
                               <>
                                 <p className="leading-tight">
-                                  {new Intl.DateTimeFormat('en-MY', { timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'medium' }).format(new Date(appt.scheduled_time))}
+                                  {formatAppointmentTime(appt.scheduled_time, 'date')}
                                 </p>
                                 <p className="text-xs opacity-80">
-                                  {new Intl.DateTimeFormat('en-MY', { timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(appt.scheduled_time))} (MYT)
+                                  {formatAppointmentTime(appt.scheduled_time, 'time')}
                                 </p>
                               </>
                             ) : (
@@ -1862,7 +1914,7 @@ export default function Dashboard({ onLogout }) {
                         )}
                       </td>
                       <td className="p-4 text-xs text-gray-600 dark:text-gray-400">
-                        {appt.scheduled_time ? new Date(appt.scheduled_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Not Scheduled'}
+                        {appt.scheduled_time ? formatAppointmentTime(appt.scheduled_time, 'short') : 'Not Scheduled'}
                       </td>
                       <td className="p-4 text-right">
                         <button
@@ -1894,11 +1946,11 @@ export default function Dashboard({ onLogout }) {
                   <CalendarDays className="w-5 h-5 text-teal-600 dark:text-teal-400" /> Clinic Schedule & Slot Matrix
                 </h3>
                 <span className="px-3 py-1 bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-700 rounded-full text-xs font-bold shadow-sm inline-flex items-center gap-1.5">
-                  🏥 Clinic Operating Time: 09:00 - 17:00 (Malaysia Time / UTC+8)
+                  🏥 Clinic Operating Hours: 09:00 - 17:00
                 </span>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                30-minute clinical triage blocks standardized to Malaysia Standard Time (MYT / UTC+8) with dynamic emergency preemption
+                30-minute clinical triage blocks with dynamic emergency preemption
               </p>
             </div>
 
@@ -1949,7 +2001,7 @@ export default function Dashboard({ onLogout }) {
               const allAppointments = queue.length > 0 ? queue : archiveList;
               const booked = allAppointments.find(a => {
                 if (!a.scheduled_time) return false;
-                const slotInfo = getClinicSlotInfo(a);
+                const slotInfo = getSlotInfo(a);
                 return slotInfo.clinicDate === selectedCalendarDate && slotInfo.clinicSlot === slotTime;
               });
 
@@ -2313,7 +2365,8 @@ export default function Dashboard({ onLogout }) {
               Set appointment time for <strong>{scheduleModal.patient_name}</strong>.
             </p>
             <div className="mb-4 p-2.5 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-xl text-xs text-teal-800 dark:text-teal-200 font-semibold flex items-center gap-1.5">
-              <span>🇲🇾 Clinic Standard Time (MYT / UTC+8)</span>
+              <Clock className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              <span>Clinic Operating Hours: 09:00 - 17:00</span>
             </div>
             <input 
               type="datetime-local" 

@@ -8,63 +8,80 @@ import {
 } from 'lucide-react';
 import { API_URL, WS_URL } from '../config';
 
-// Timezone and display helper for Patient Dashboard (Clinic standard: Malaysia Time / UTC+8)
-const renderScheduledTime = (dateInput, dateStyle = 'full') => {
-  if (!dateInput) return null;
-  const d = new Date(dateInput);
-  if (isNaN(d.getTime())) return null;
+// Universal Wall-Clock Time Parser & Display Helpers (No Timezone Shift)
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
 
-  // Format explicitly in Malaysia Standard Time (MYT / UTC+8)
-  const mytFormatted = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Kuala_Lumpur',
-    dateStyle: dateStyle,
-    timeStyle: 'short'
-  }).format(d);
+const SHORT_MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+];
 
-  // Check if browser timezone offset matches UTC+8 (-480 minutes)
-  const isUtc8 = d.getTimezoneOffset() === -480;
+export const formatAppointmentTime = (dateInput, style = 'full') => {
+  if (!dateInput) return '';
 
-  if (isUtc8) {
-    return (
-      <span className="font-semibold text-gray-800 dark:text-gray-200">
-        {mytFormatted} <span className="text-teal-600 dark:text-teal-400 font-bold">(MYT / Malaysia Time)</span>
-      </span>
-    );
+  if (typeof dateInput === 'object' && !(dateInput instanceof Date)) {
+    if (dateInput.scheduled_time) return formatAppointmentTime(dateInput.scheduled_time, style);
+    if (dateInput.clinic_date && dateInput.clinic_slot) {
+      return formatAppointmentTime(`${dateInput.clinic_date}T${dateInput.clinic_slot}`, style);
+    }
+    if (dateInput.submission_time) return formatAppointmentTime(dateInput.submission_time, style);
   }
 
-  // If browser is NOT in UTC+8, calculate local time and friendly timezone label
-  const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-  let tzDisplayName = '';
-  try {
-    const parts = new Intl.DateTimeFormat(undefined, {
-      timeZoneName: 'short',
-      hour: 'numeric',
-      minute: 'numeric'
-    }).formatToParts(d);
-    const tzPart = parts.find(p => p.type === 'timeZoneName');
-    if (tzPart) tzDisplayName = tzPart.value;
-  } catch (e) {}
+  let year = '', month = '', day = '', hh = '00', mm = '00';
 
-  if (userTimeZone.includes('Dhaka')) {
-    tzDisplayName = 'Bangladesh Time';
-  } else if (userTimeZone.includes('Kuala_Lumpur') || userTimeZone.includes('Singapore')) {
-    tzDisplayName = 'Malaysia Time';
+  if (typeof dateInput === 'string') {
+    const match = dateInput.trim().match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
+    if (match) {
+      [, year, month, day, hh, mm] = match;
+    } else {
+      const dateOnly = dateInput.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dateOnly) {
+        [, year, month, day] = dateOnly;
+        hh = '09';
+        mm = '00';
+      }
+    }
   }
 
-  const localTimeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  const localFullStr = d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  if (!year) {
+    const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    year = String(d.getFullYear());
+    month = String(d.getMonth() + 1).padStart(2, '0');
+    day = String(d.getDate()).padStart(2, '0');
+    hh = String(d.getHours()).padStart(2, '0');
+    mm = String(d.getMinutes()).padStart(2, '0');
+  }
+
+  const hNum = parseInt(hh, 10);
+  const ampm = hNum >= 12 ? 'PM' : 'AM';
+  const h12 = hNum % 12 || 12;
+  const h12Str = String(h12).padStart(2, '0');
+  const timeStr = `${h12Str}:${mm} ${ampm}`;
+
+  const mIdx = parseInt(month, 10) - 1;
+  const fullMonth = MONTH_NAMES[mIdx] || month;
+  const shortMonth = SHORT_MONTHS[mIdx] || month;
+  const dNum = parseInt(day, 10);
+
+  if (style === 'time') return timeStr;
+  if (style === 'date') return `${fullMonth} ${dNum}, ${year}`;
+  if (style === 'shortDate') return `${shortMonth} ${dNum}, ${year}`;
+  if (style === 'medium' || style === 'short') return `${shortMonth} ${dNum}, ${year} at ${timeStr}`;
+  return `${fullMonth} ${dNum}, ${year} at ${timeStr}`;
+};
+
+// Clean standard time display with zero timezone labels
+export const renderScheduledTime = (dateInput, dateStyle = 'full') => {
+  const formatted = formatAppointmentTime(dateInput, dateStyle);
+  if (!formatted) return null;
 
   return (
-    <span className="inline-flex flex-wrap items-center gap-1.5 font-semibold text-gray-800 dark:text-gray-200">
-      <span>
-        {mytFormatted} <span className="text-teal-600 dark:text-teal-400 font-bold">(MYT / Malaysia Time)</span>
-      </span>
-      <span 
-        title={`Your device local time: ${localFullStr}`}
-        className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-sm cursor-help"
-      >
-        ({localTimeStr} {tzDisplayName || 'Local Time'})
-      </span>
+    <span className="font-semibold text-gray-800 dark:text-gray-200">
+      {formatted}
     </span>
   );
 };
@@ -468,7 +485,7 @@ export default function PatientDashboard({ onLogout }) {
                           {appt.scheduled_time ? (
                             renderScheduledTime(appt.scheduled_time, 'full')
                           ) : (
-                            <span>Submitted: {new Date(appt.submission_time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                            <span>Submitted: {formatAppointmentTime(appt.submission_time, 'medium')}</span>
                           )}
                         </div>
 
@@ -621,9 +638,8 @@ export default function PatientDashboard({ onLogout }) {
                             <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             <span>
                               <strong>Date Completed:</strong> {completedDate ? (
-                                <span className="inline-flex items-center gap-1">
-                                  {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(completedDate))}
-                                  <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold">(MYT)</span>
+                                <span className="font-semibold text-gray-800 dark:text-gray-200">
+                                  {formatAppointmentTime(completedDate, 'medium')}
                                 </span>
                               ) : 'Recorded'}
                             </span>

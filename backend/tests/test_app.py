@@ -307,6 +307,46 @@ class TelehealthAPITests(unittest.TestCase):
         self.assertIn("clinic_slot", details)
         self.assertRegex(details["clinic_date"], r"^\d{4}-\d{2}-\d{2}$")
         self.assertRegex(details["clinic_slot"], r"^\d{2}:\d{2}$")
+        # 6. Verify scheduled_time is clean ISO without browser-shifting offsets
+        self.assertNotIn("+08:00", details["scheduled_time"])
+        self.assertNotIn("+06:00", details["scheduled_time"])
+        self.assertNotIn("Z", details["scheduled_time"])
+        self.assertRegex(details["scheduled_time"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$")
+
+    def test_email_templates_have_no_timezone_labels(self):
+        """Verify email templates use clean standard date/time formatting without MYT / UTC+8 labels."""
+        import unittest.mock as mock
+        with mock.patch("backend.main._send_email") as mock_email:
+            dt = datetime(2026, 11, 24, 9, 30)
+            main_module.send_real_email("test@example.com", "John Doe", "Dr. Bob", dt, "Test notes")
+            self.assertTrue(mock_email.called)
+            body = mock_email.call_args[0][2]
+            self.assertNotIn("MYT", body)
+            self.assertNotIn("Malaysia", body)
+            self.assertNotIn("UTC+8", body)
+            self.assertIn("November 24, 2026 at 09:30 AM", body)
+
+        with mock.patch("backend.main._send_email") as mock_email:
+            dt_old = datetime(2026, 11, 24, 9, 30)
+            dt_new = datetime(2026, 11, 24, 10, 0)
+            main_module.send_reschedule_email("test@example.com", "John Doe", dt_old, dt_new)
+            self.assertTrue(mock_email.called)
+            body = mock_email.call_args[0][2]
+            self.assertNotIn("MYT", body)
+            self.assertNotIn("Malaysia", body)
+            self.assertNotIn("UTC+8", body)
+            self.assertIn("09:30 AM", body)
+            self.assertIn("10:00 AM", body)
+
+        with mock.patch("backend.main._send_email") as mock_email:
+            dt = datetime(2026, 11, 24, 9, 0)
+            main_module.send_emergency_confirmation_email("test@example.com", "John Doe", dt)
+            self.assertTrue(mock_email.called)
+            body = mock_email.call_args[0][2]
+            self.assertNotIn("MYT", body)
+            self.assertNotIn("Malaysia", body)
+            self.assertNotIn("UTC+8", body)
+            self.assertIn("November 24, 2026 at 09:00 AM", body)
 
 
 if __name__ == "__main__":
