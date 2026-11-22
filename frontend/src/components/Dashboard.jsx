@@ -282,27 +282,112 @@ export default function Dashboard({ onLogout }) {
   };
 
   const executeOverride = async () => {
-    if (!newPriority) return;
+    if (!newPriority || !overrideModal) return;
     if (!overrideReason.trim()) {
       toast.error('Please enter a clinical reason for this priority override');
       return;
     }
     try {
+      // 1. Notify backend about the priority override
       const response = await fetch(`${API_URL}/override-priority/${overrideModal._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify({ new_priority: newPriority, reason: overrideReason.trim() })
       });
-      if (response.ok) {
-        toast.success(`Priority overridden to ${newPriority}`);
-        setOverrideModal(null);
-        setOverrideReason('');
-        fetchQueue();
-      } else {
+      if (!response.ok) {
         toast.error('Failed to override priority');
+        return;
       }
+
+      // 2. Priority Cascading Slot Allocation:
+      // Standard 30-minute clinic slots (09:00 - 17:00)
+      const CLINIC_SLOTS = [
+        '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+        '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
+        '15:00', '15:30', '16:00', '16:30'
+      ];
+
+      // Determine date of the clinic session (UTC YYYY-MM-DD)
+      let targetDateStr = selectedCalendarDate;
+      if (overrideModal.scheduled_time) {
+        const d = new Date(overrideModal.scheduled_time);
+        if (!isNaN(d.getTime())) {
+          targetDateStr = d.toISOString().slice(0, 10);
+        }
+      }
+
+      // Gather active appointments for the target date
+      const allAppts = queue.length > 0 ? [...queue] : [...archiveList];
+      const sameDayAppts = allAppts.filter(a => {
+        if (!a.scheduled_time) return true;
+        const d = new Date(a.scheduled_time);
+        if (isNaN(d.getTime())) return true;
+        return d.toISOString().slice(0, 10) === targetDateStr;
+      });
+
+      // Update target appointment with new priority in our working list
+      const updatedList = sameDayAppts.map(a => 
+        a._id === overrideModal._id ? { ...a, ai_urgency_score: newPriority, isNewlyEscalated: true } : a
+      );
+
+      // Separate into clinical buckets:
+      // A. Existing Emergencies (emergency before this override) -> keep earlier slots
+      const existingEmergencies = updatedList
+        .filter(a => a.ai_urgency_score === 'Emergency' && !a.isNewlyEscalated)
+        .sort((a, b) => new Date(a.scheduled_time || 0) - new Date(b.scheduled_time || 0));
+
+      // B. Newly Changed Emergency -> placed right after previous emergencies
+      const newEmergencies = updatedList.filter(a => a.ai_urgency_score === 'Emergency' && a.isNewlyEscalated);
+
+      // C. Urgent patients
+      const urgents = updatedList
+        .filter(a => a.ai_urgency_score === 'Urgent')
+        .sort((a, b) => new Date(a.scheduled_time || 0) - new Date(b.scheduled_time || 0));
+
+      // D. Routine patients
+      const routines = updatedList
+        .filter(a => a.ai_urgency_score === 'Routine')
+        .sort((a, b) => new Date(a.scheduled_time || 0) - new Date(b.scheduled_time || 0));
+
+      // The cascaded order: existing emergencies -> upcoming new emergency -> urgents -> routines
+      const cascadedQueue = [...existingEmergencies, ...newEmergencies, ...urgents, ...routines];
+
+      // 3. Shift appointments into neat 30-minute clinic slots (09:00, 09:30, 10:00, etc.)
+      const slotUpdates = [];
+      cascadedQueue.forEach((appt, idx) => {
+        if (idx < CLINIC_SLOTS.length) {
+          const slot = CLINIC_SLOTS[idx];
+          const newIso = `${targetDateStr}T${slot}:00.000Z`;
+          slotUpdates.push({
+            id: appt._id,
+            new_time: newIso,
+            slot
+          });
+        }
+      });
+
+      // 4. Update the schedule for all shifted appointments in backend
+      await Promise.all(slotUpdates.map(u => 
+        fetch(`${API_URL}/override-schedule/${u.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+          body: JSON.stringify({ new_time: u.new_time })
+        }).catch(e => console.warn('Schedule sync warning:', e))
+      ));
+
+      const assignedSlot = slotUpdates.find(u => u.id === overrideModal._id)?.slot || 'first available';
+      if (newPriority === 'Emergency') {
+        toast.success(`Emergency prioritized! Allocated slot ${assignedSlot}; subsequent slots shifted by 1 row.`);
+      } else {
+        toast.success(`Priority updated to ${newPriority}. Schedule realigned.`);
+      }
+
+      setOverrideModal(null);
+      setOverrideReason('');
+      await fetchQueue();
     } catch (err) {
-      toast.error('Network error');
+      console.error('Priority override error:', err);
+      toast.error('Network error during priority override');
     }
   };
 

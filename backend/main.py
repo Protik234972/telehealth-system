@@ -626,21 +626,69 @@ async def override_priority(appointment_id: str, override: PriorityOverride, cur
     if not appt:
         raise HTTPException(status_code=404, detail="Appointment not found")
         
-    new_time = await CalendarManager.get_next_available_slot(override.new_priority)
     reason_text = override.reason or "Clinical priority adjustment"
     
-    result = await db.appointments.update_one(
+    # 1. Update the priority of the target appointment
+    await db.appointments.update_one(
         {"_id": ObjectId(appointment_id)},
         {"$set": {
             "ai_urgency_score": override.new_priority,
-            "scheduled_time": new_time,
             "overridden_by": current_user["username"],
-            "override_reason": reason_text
+            "override_reason": reason_text,
+            "priority_overridden_at": datetime.utcnow()
         }}
     )
+
+    # 2. Priority Cascading Slot Allocation:
+    # Ensure previous emergencies stay first, new emergency comes next, and subsequent appointments shift by 1 row (+30m)
+    target_dt = appt.get("scheduled_time") or datetime.utcnow()
+    target_date = target_dt.date()
+    start_dt = datetime.combine(target_date, datetime.min.time())
+    end_dt = datetime.combine(target_date, datetime.max.time())
     
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Appointment not found")
+    day_appts = await db.appointments.find({
+        "final_status": "Pending",
+        "scheduled_time": {"$gte": start_dt, "$lte": end_dt}
+    }).to_list(length=100)
+
+    # Buckets:
+    # A. Existing Emergencies (emergency before this override) -> keep earlier slots
+    existing_em = [a for a in day_appts if a.get("ai_urgency_score") == "Emergency" and str(a["_id"]) != str(appointment_id)]
+    existing_em.sort(key=lambda x: x.get("scheduled_time") or datetime.min)
+
+    # B. Newly Escalated Emergency
+    new_em = [a for a in day_appts if str(a["_id"]) == str(appointment_id) and override.new_priority == "Emergency"]
+
+    # C. Urgent appointments
+    urgents = [a for a in day_appts if a.get("ai_urgency_score") == "Urgent"]
+    urgents.sort(key=lambda x: x.get("scheduled_time") or datetime.min)
+
+    # D. Routine appointments
+    routines = [a for a in day_appts if a.get("ai_urgency_score") == "Routine"]
+    routines.sort(key=lambda x: x.get("scheduled_time") or datetime.min)
+
+    cascaded = existing_em + new_em + urgents + routines
+    
+    CLINIC_HOURS = [
+        (9, 0), (9, 30), (10, 0), (10, 30), (11, 0), (11, 30),
+        (12, 0), (12, 30), (13, 0), (13, 30), (14, 0), (14, 30),
+        (15, 0), (15, 30), (16, 0), (16, 30)
+    ]
+
+    new_time = None
+    for idx, item in enumerate(cascaded):
+        if idx < len(CLINIC_HOURS):
+            h, m = CLINIC_HOURS[idx]
+            slot_dt = datetime(target_date.year, target_date.month, target_date.day, h, m, 0)
+            await db.appointments.update_one(
+                {"_id": item["_id"]},
+                {"$set": {"scheduled_time": slot_dt}}
+            )
+            if str(item["_id"]) == str(appointment_id):
+                new_time = slot_dt
+
+    if not new_time:
+        new_time = datetime(target_date.year, target_date.month, target_date.day, 9, 0, 0)
 
     # Log into clinical audit trail
     await db.audit_logs.insert_one({
