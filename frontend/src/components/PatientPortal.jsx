@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Clock, CheckSquare, Square, Stethoscope } from 'lucide-react';
+import { Clock, CheckSquare, Square, Stethoscope, User, Users, Edit2 } from 'lucide-react';
 import { API_URL } from '../config';
 
 const COMMON_SYMPTOMS = [
@@ -16,7 +16,7 @@ const COMMON_SYMPTOMS = [
   'Abdominal Pain'
 ];
 
-export default function PatientPortal() {
+export default function PatientPortal({ onAppointmentCreated }) {
   const loggedInUser = localStorage.getItem('username') || '';
   const [formData, setFormData] = useState({
     patient_name: loggedInUser,
@@ -108,6 +108,9 @@ export default function PatientPortal() {
       setSelectedSymptoms([]);
       setDuration('1–2 Days');
       toast.success(`Triage complete! Priority: ${data.urgency}`);
+      if (onAppointmentCreated) {
+        onAppointmentCreated(data);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -152,14 +155,31 @@ export default function PatientPortal() {
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Patient Full Name</label>
-            <input 
-              type="text" required
-              className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
-              value={formData.patient_name}
-              onChange={(e) => setFormData({...formData, patient_name: e.target.value})}
-              placeholder="e.g. John Doe"
-            />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">
+                Patient Full Name
+              </label>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                <Edit2 className="w-2.5 h-2.5" />
+                Editable
+              </span>
+            </div>
+            <div className="relative">
+              <input 
+                type="text" required
+                className="w-full pl-9 pr-3.5 py-2.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all font-medium"
+                value={formData.patient_name}
+                onChange={(e) => setFormData({...formData, patient_name: e.target.value})}
+                placeholder="e.g. John Doe, Sarah Doe, Rayan"
+              />
+              <User className="w-4 h-4 text-gray-400 dark:text-gray-500 absolute left-3 top-3 pointer-events-none" />
+            </div>
+            <div className="mt-1.5 flex items-start gap-1.5 p-2 rounded-lg bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300 text-[11px] leading-tight">
+              <Users className="w-3.5 h-3.5 mt-0.5 shrink-0 text-indigo-500 dark:text-indigo-400" />
+              <span>
+                <strong>Booking for yourself or someone else?</strong> You can edit this name (e.g. spouse, child, parent).
+              </span>
+            </div>
           </div>
           
           <div>
