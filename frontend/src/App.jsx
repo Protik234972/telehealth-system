@@ -107,12 +107,21 @@ function App() {
       return <Login onLoginSuccess={handleLoginSuccess} />
     }
     
-    if (currentView === 'analytics' && userRole === 'admin') {
-      return <Analytics onLogout={handleLogout} />
-    }
-    
     if (userRole === 'patient') {
       return <PatientDashboard onLogout={handleLogout} />
+    }
+
+    if (userRole === 'admin') {
+      return (
+        <>
+          <div className={currentView === 'analytics' ? 'hidden' : 'block'}>
+            <Dashboard onLogout={handleLogout} />
+          </div>
+          {currentView === 'analytics' && (
+            <Analytics onLogout={handleLogout} />
+          )}
+        </>
+      )
     }
     
     return <Dashboard onLogout={handleLogout} />

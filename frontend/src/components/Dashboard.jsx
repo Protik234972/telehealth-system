@@ -4,8 +4,22 @@ import toast from 'react-hot-toast';
 import { API_URL, WS_URL } from '../config';
 
 export default function Dashboard({ onLogout }) {
-  const [queue, setQueue] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [queue, setQueue] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('teletriage_queue');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('teletriage_queue');
+      return cached ? false : true;
+    } catch (e) {
+      return true;
+    }
+  });
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
@@ -15,7 +29,14 @@ export default function Dashboard({ onLogout }) {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date().toISOString().slice(0, 10));
 
   // Admin All Records Archive State
-  const [archiveList, setArchiveList] = useState([]);
+  const [archiveList, setArchiveList] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('teletriage_archive');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [archiveStatusFilter, setArchiveStatusFilter] = useState('All');
 
   // Clinical Audit Trail State
@@ -78,6 +99,9 @@ export default function Dashboard({ onLogout }) {
       if (!response.ok) throw new Error('Failed to fetch queue');
       const data = await response.json();
       setQueue(data.queue);
+      try {
+        sessionStorage.setItem('teletriage_queue', JSON.stringify(data.queue));
+      } catch (e) {}
       setArchiveList(prev => {
         const map = new Map();
         prev.forEach(item => map.set(item._id, item));
@@ -85,7 +109,11 @@ export default function Dashboard({ onLogout }) {
           const existing = map.get(item._id);
           map.set(item._id, { ...existing, ...item });
         });
-        return Array.from(map.values());
+        const list = Array.from(map.values());
+        try {
+          sessionStorage.setItem('teletriage_archive', JSON.stringify(list));
+        } catch (e) {}
+        return list;
       });
       setSelectedPatient(prev => {
         if (!prev) return null;
@@ -139,7 +167,11 @@ export default function Dashboard({ onLogout }) {
             const map = new Map();
             prev.forEach(item => map.set(item._id, item));
             data.appointments.forEach(item => map.set(item._id, item));
-            return Array.from(map.values());
+            const list = Array.from(map.values());
+            try {
+              sessionStorage.setItem('teletriage_archive', JSON.stringify(list));
+            } catch (e) {}
+            return list;
           });
           return;
         }
