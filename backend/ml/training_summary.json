@@ -1,15 +1,15 @@
 {
-  "dataset_rows": 10000,
-  "train_rows": 8000,
-  "test_rows": 2000,
+  "dataset_rows": 12000,
+  "train_rows": 9600,
+  "test_rows": 2400,
   "cv_folds": 5,
   "best_params": {
-    "clf__estimator__C": "1",
-    "tfidf__ngram_range": "(1, 1)"
+    "clf__estimator__C": "10",
+    "tfidf__ngram_range": "(1, 2)"
   },
-  "best_cv_score": 1.0,
-  "vocab_size": 224,
-  "model_bytes": 130859,
+  "best_cv_score": 0.9998958333333334,
+  "vocab_size": 5000,
+  "model_bytes": 1469516,
   "test_accuracy": 1.0,
   "labels": [
     "Emergency",
@@ -18,19 +18,19 @@
   ],
   "confusion_matrix": [
     [
-      667,
+      800,
       0,
       0
     ],
     [
       0,
-      666,
+      800,
       0
     ],
     [
       0,
       0,
-      667
+      800
     ]
   ],
   "classification_report": {
@@ -38,32 +38,32 @@
       "precision": 1.0,
       "recall": 1.0,
       "f1-score": 1.0,
-      "support": 667.0
+      "support": 800.0
     },
     "Urgent": {
       "precision": 1.0,
       "recall": 1.0,
       "f1-score": 1.0,
-      "support": 666.0
+      "support": 800.0
     },
     "Routine": {
       "precision": 1.0,
       "recall": 1.0,
       "f1-score": 1.0,
-      "support": 667.0
+      "support": 800.0
     },
     "accuracy": 1.0,
     "macro avg": {
       "precision": 1.0,
       "recall": 1.0,
       "f1-score": 1.0,
-      "support": 2000.0
+      "support": 2400.0
     },
     "weighted avg": {
       "precision": 1.0,
       "recall": 1.0,
       "f1-score": 1.0,
-      "support": 2000.0
+      "support": 2400.0
     }
   }
 }

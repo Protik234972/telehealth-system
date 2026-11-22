@@ -46,12 +46,12 @@ def train_model():
 
     print("Setting up TF-IDF + Calibrated Linear SVM pipeline and 5-fold GridSearchCV...")
     pipeline = Pipeline([
-        ("tfidf", TfidfVectorizer(max_features=3000)),
+        ("tfidf", TfidfVectorizer(max_features=5000, sublinear_tf=True)),
         ("clf", CalibratedClassifierCV(SVC(kernel="linear", class_weight="balanced"), cv=3)),
     ])
 
     parameters = {
-        "tfidf__ngram_range": [(1, 1), (1, 2)],
+        "tfidf__ngram_range": [(1, 2), (1, 3)],
         "clf__estimator__C": [1, 10],
     }
 

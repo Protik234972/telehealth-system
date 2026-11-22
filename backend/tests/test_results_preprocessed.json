@@ -1,0 +1,1199 @@
+{
+  "mode": "MODE B: Preprocessed Inference (model.predict([preprocess(raw_text)]))",
+  "total_cases": 76,
+  "accuracy": 1.0,
+  "emergency_fn_rate": 0.0,
+  "confusion_matrix": [
+    [
+      28,
+      0,
+      0
+    ],
+    [
+      0,
+      18,
+      0
+    ],
+    [
+      0,
+      0,
+      30
+    ]
+  ],
+  "report": {
+    "Emergency": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 28.0
+    },
+    "Urgent": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 18.0
+    },
+    "Routine": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 30.0
+    },
+    "accuracy": 1.0,
+    "macro avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 76.0
+    },
+    "weighted avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 76.0
+    }
+  },
+  "failures": [],
+  "all_results": [
+    {
+      "id": "CARD-01",
+      "category": "Cardiac",
+      "text": "Severe crushing chest pain radiating down left arm and into jaw, profuse sweating, shortness of breath",
+      "input_to_model": "severe crush chest pain radiate left arm jaw profuse sweating shortness breath",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9977,
+        "Routine": 0.0,
+        "Urgent": 0.0023
+      },
+      "is_correct": true,
+      "rationale": "Classic Acute Coronary Syndrome (STEMI/NSTEMI) presentation."
+    },
+    {
+      "id": "CARD-02",
+      "category": "Cardiac",
+      "text": "Intense substernal chest pressure feeling like an elephant sitting on chest with dizziness and nausea",
+      "input_to_model": "intense substernal chest pressure feeling like elephant sit chest dizziness nausea",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9975,
+        "Routine": 0.0,
+        "Urgent": 0.0025
+      },
+      "is_correct": true,
+      "rationale": "Severe acute angina/infarction red flag."
+    },
+    {
+      "id": "CARD-03",
+      "category": "Cardiac",
+      "text": "Sudden heart palpitations, pulse 190 bpm, feeling faint and lips turning blue",
+      "input_to_model": "sudden heart palpitation pulse bpm feel faint lip turn blue",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.992,
+        "Routine": 0.008,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Hemodynamically unstable tachydysrhythmia with cyanosis."
+    },
+    {
+      "id": "CARD-04",
+      "category": "Cardiac",
+      "text": "Patient collapsed suddenly after clutching chest, currently unresponsive",
+      "input_to_model": "patient collapse suddenly clutch chest currently unresponsive",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9903,
+        "Routine": 0.0097,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Suspected cardiac arrest / syncope requiring immediate resuscitation."
+    },
+    {
+      "id": "RESP-01",
+      "category": "Respiratory",
+      "text": "Severe acute asthma exacerbation, gasping for air, rescue inhaler failed 4 times, cannot speak full words",
+      "input_to_model": "severe acute asthma exacerbation gasp air rescue inhaler not_working cannot_speak word",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9984,
+        "Routine": 0.0,
+        "Urgent": 0.0015
+      },
+      "is_correct": true,
+      "rationale": "Status asthmaticus with impending respiratory failure."
+    },
+    {
+      "id": "RESP-02",
+      "category": "Respiratory",
+      "text": "Choking on a piece of food, cannot cough or breathe, stridor and blue discoloration around mouth",
+      "input_to_model": "choke piece food no no_cough no_breathe stridor blue discoloration mouth",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9862,
+        "Routine": 0.0138,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Acute upper airway obstruction."
+    },
+    {
+      "id": "RESP-03",
+      "category": "Respiratory",
+      "text": "Sudden sharp pleuritic chest pain with severe shortness of breath and coughing up bright red blood",
+      "input_to_model": "sudden sharp pleuritic chest pain severe shortness breath cough bright red blood",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9973,
+        "Routine": 0.0,
+        "Urgent": 0.0027
+      },
+      "is_correct": true,
+      "rationale": "Massive pulmonary embolism red flags."
+    },
+    {
+      "id": "NEUR-01",
+      "category": "Neurological",
+      "text": "Sudden onset right facial droop, right arm paralysis, and garbled incomprehensible speech",
+      "input_to_model": "sudden onset right facial droop right arm paralysis garble incomprehensible speech",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9989,
+        "Routine": 0.0,
+        "Urgent": 0.0011
+      },
+      "is_correct": true,
+      "rationale": "Acute ischemic stroke (FAST positive, time-critical tPA window)."
+    },
+    {
+      "id": "NEUR-02",
+      "category": "Neurological",
+      "text": "Worst headache of my life, sudden thunderclap onset within seconds, vomiting and neck stiffness",
+      "input_to_model": "bad headache life sudden thunderclap onset second vomiting neck stiffness",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9985,
+        "Routine": 0.0,
+        "Urgent": 0.0015
+      },
+      "is_correct": true,
+      "rationale": "Suspected Subarachnoid Hemorrhage (aneurysm rupture)."
+    },
+    {
+      "id": "NEUR-03",
+      "category": "Neurological",
+      "text": "Patient is having generalized tonic-clonic convulsions lasting over 4 minutes without waking up",
+      "input_to_model": "patient generalize tonic clonic convulsion last minute unresponsive_without_waking",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9988,
+        "Routine": 0.0,
+        "Urgent": 0.0012
+      },
+      "is_correct": true,
+      "rationale": "Status epilepticus."
+    },
+    {
+      "id": "NEUR-04",
+      "category": "Neurological",
+      "text": "Sudden complete bilateral vision loss and acute confusion with left-sided hemiparesis",
+      "input_to_model": "sudden complete bilateral vision loss acute confusion left sided hemiparesis",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9985,
+        "Routine": 0.0,
+        "Urgent": 0.0015
+      },
+      "is_correct": true,
+      "rationale": "Basilar artery / posterior circulation stroke."
+    },
+    {
+      "id": "TRAU-01",
+      "category": "Trauma/Bleeding",
+      "text": "Deep arterial puncture wound to the thigh, bright red blood spurting vigorously and will not stop with towels",
+      "input_to_model": "deep arterial puncture wound thigh bright red blood spurt vigorously will_not_stop towel",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9982,
+        "Routine": 0.0,
+        "Urgent": 0.0018
+      },
+      "is_correct": true,
+      "rationale": "Arterial hemorrhage risking rapid exsanguination."
+    },
+    {
+      "id": "TRAU-02",
+      "category": "Trauma/Bleeding",
+      "text": "High speed motor vehicle collision, head hit steering wheel, unconscious with open skull depression",
+      "input_to_model": "high speed motor vehicle collision head hit steering wheel unconscious open skull depression",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9986,
+        "Routine": 0.0,
+        "Urgent": 0.0014
+      },
+      "is_correct": true,
+      "rationale": "Major polytrauma / traumatic brain injury."
+    },
+    {
+      "id": "TRAU-03",
+      "category": "Trauma/Bleeding",
+      "text": "Vomiting large quantities of dark coffee-ground blood and passing black tarry stools with extreme dizziness",
+      "input_to_model": "vomit large quantity dark coffee ground blood pass black tarry stool extreme dizziness",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9985,
+        "Routine": 0.0,
+        "Urgent": 0.0015
+      },
+      "is_correct": true,
+      "rationale": "Upper gastrointestinal bleeding with hemodynamic instability."
+    },
+    {
+      "id": "ANAPH-01",
+      "category": "Anaphylaxis",
+      "text": "Accidentally consumed peanut sauce, throat closing, tongue swelling rapidly, full body hives, wheezing",
+      "input_to_model": "accidentally consume peanut sauce throat closing tongue swell rapidly body hive wheeze",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9987,
+        "Routine": 0.0,
+        "Urgent": 0.0013
+      },
+      "is_correct": true,
+      "rationale": "Severe anaphylactic shock."
+    },
+    {
+      "id": "ANAPH-02",
+      "category": "Anaphylaxis",
+      "text": "Multiple bee stings 10 minutes ago, feeling faint, BP dropping, lips blue, struggling to inhale air",
+      "input_to_model": "multiple bee sting minute ago feel faint bp dropping lip blue struggle inhale air",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9905,
+        "Routine": 0.0095,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Anaphylactic shock with airway compromise."
+    },
+    {
+      "id": "URG-01",
+      "category": "Urgent/Infection",
+      "text": "High fever of 103.5 F for two days with severe rigors, flank pain, burning urination and nausea",
+      "input_to_model": "high fever f day severe rigor flank pain burn urination nausea",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0008,
+        "Routine": 0.0,
+        "Urgent": 0.9992
+      },
+      "is_correct": true,
+      "rationale": "Acute pyelonephritis requiring urgent antibiotics and evaluation."
+    },
+    {
+      "id": "URG-02",
+      "category": "Urgent/GI",
+      "text": "Severe right lower quadrant abdominal pain for 12 hours, low fever, pain worsened by walking",
+      "input_to_model": "severe right lower quadrant abdominal pain hour low fever pain worsen walk",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0005,
+        "Routine": 0.0,
+        "Urgent": 0.9995
+      },
+      "is_correct": true,
+      "rationale": "Acute appendicitis requiring urgent surgical evaluation."
+    },
+    {
+      "id": "URG-03",
+      "category": "Urgent/Ortho",
+      "text": "Fell down steps, heard a loud pop in ankle, immediate severe swelling and inability to bear any weight",
+      "input_to_model": "fall step hear loud pop ankle immediate severe swelling inability bear weight",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.0,
+        "Urgent": 0.9994
+      },
+      "is_correct": true,
+      "rationale": "Acute ankle fracture / high-grade ligament tear requiring urgent radiography."
+    },
+    {
+      "id": "URG-04",
+      "category": "Urgent/GI",
+      "text": "Severe gastrointestinal flu, vomited 8 times today, unable to tolerate sips of water, dry mouth and weakness",
+      "input_to_model": "severe gastrointestinal flu vomit time today unable tolerate sip water dry mouth weakness",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0009,
+        "Routine": 0.0,
+        "Urgent": 0.9991
+      },
+      "is_correct": true,
+      "rationale": "Dehydration secondary to acute gastroenteritis."
+    },
+    {
+      "id": "URG-05",
+      "category": "Urgent/Neuro",
+      "text": "Severe throbbing migraine with aura and intense nausea lasting 18 hours, unresponsive to OTC ibuprofen",
+      "input_to_model": "severe throbbing migraine aura intense nausea last hour unresponsive otc ibuprofen",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.001,
+        "Routine": 0.0,
+        "Urgent": 0.999
+      },
+      "is_correct": true,
+      "rationale": "Status migrainosus requiring prescription abortive therapy."
+    },
+    {
+      "id": "URG-06",
+      "category": "Urgent/Skin",
+      "text": "Punctured hand on rusty nail yesterday, now red streak spreading up forearm with throbbing warmth and pus",
+      "input_to_model": "punctured hand rusty nail yesterday red streak spread forearm throb warmth pus",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.0,
+        "Urgent": 0.9994
+      },
+      "is_correct": true,
+      "rationale": "Ascending lymphangitis / cellulitis needing urgent antibiotics."
+    },
+    {
+      "id": "URG-07",
+      "category": "Urgent/ENT",
+      "text": "Severe acute ear pain in 5-year-old with 102F fever and purulent drainage from ear canal",
+      "input_to_model": "severe acute ear pain year old fever purulent drainage ear canal",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0011,
+        "Routine": 0.0,
+        "Urgent": 0.9989
+      },
+      "is_correct": true,
+      "rationale": "Acute suppurative otitis media with possible tympanic perforation."
+    },
+    {
+      "id": "URG-08",
+      "category": "Urgent/Ortho",
+      "text": "Sharp sudden lower back spasm while lifting heavy box, pain shooting down sciatica nerve, can barely walk",
+      "input_to_model": "sharp sudden low spasm lift heavy box pain shoot sciatica nerve barely walk",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0007,
+        "Routine": 0.0,
+        "Urgent": 0.9993
+      },
+      "is_correct": true,
+      "rationale": "Acute lumbar radiculopathy / severe disc herniation."
+    },
+    {
+      "id": "URG-09",
+      "category": "Urgent/Respiratory",
+      "text": "Productive cough with rust-colored sputum, fever 102.8F, and moderate chest tightness for 3 days",
+      "input_to_model": "productive cough rust color sputum fever moderate chest tightness day",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0009,
+        "Routine": 0.0,
+        "Urgent": 0.9991
+      },
+      "is_correct": true,
+      "rationale": "Community-acquired pneumonia requiring urgent assessment and prescription."
+    },
+    {
+      "id": "URG-10",
+      "category": "Urgent/Wound",
+      "text": "Deep laceration on palm from kitchen knife 2 hours ago, bleeding controlled with direct pressure but gaping open",
+      "input_to_model": "deep laceration palm kitchen knife hour ago bleed control direct pressure gap open",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0009,
+        "Routine": 0.0,
+        "Urgent": 0.9991
+      },
+      "is_correct": true,
+      "rationale": "Full-thickness laceration requiring suturing within primary closure window."
+    },
+    {
+      "id": "ROUT-01",
+      "category": "Routine/Refill",
+      "text": "Need routine 90-day medication refill for my blood pressure pill Lisinopril 10mg, feeling completely fine",
+      "input_to_model": "need routine day medication refill blood pressure pill lisinopril mg feel completely fine",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.9994,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Standard prescription refill request."
+    },
+    {
+      "id": "ROUT-02",
+      "category": "Routine/Refill",
+      "text": "Requesting renewal of my daily Atorvastatin 20mg prescription for cholesterol management",
+      "input_to_model": "request renewal daily atorvastatin mg prescription cholesterol management",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.9994,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Routine chronic medication continuation."
+    },
+    {
+      "id": "ROUT-03",
+      "category": "Routine/Checkup",
+      "text": "Scheduling my annual wellness physical exam and routine preventative blood panel",
+      "input_to_model": "schedule annual wellness physical exam routine preventative blood panel",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0007,
+        "Routine": 0.9993,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Preventative routine care."
+    },
+    {
+      "id": "ROUT-04",
+      "category": "Routine/Followup",
+      "text": "Routine follow up consultation to review my fasting glucose and lipid lab results from last week",
+      "input_to_model": "routine follow consultation review fast glucose lipid lab result week",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0004,
+        "Routine": 0.9996,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Non-urgent lab review."
+    },
+    {
+      "id": "ROUT-05",
+      "category": "Routine/MildIllness",
+      "text": "Mild runny nose, sneezing, and slight tickle in throat for 2 days, drinking warm tea and resting",
+      "input_to_model": "mild runny nose sneezing slight tickle throat day drink warm tea rest",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.9994,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Mild upper respiratory viral syndrome (common cold)."
+    },
+    {
+      "id": "ROUT-06",
+      "category": "Routine/MildIllness",
+      "text": "Occasional mild dry cough in the morning for 3 days, no fever, no shortness of breath, normal energy",
+      "input_to_model": "occasional mild dry cough morning day no no_fever no no_shortness no_breath normal energy",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0,
+        "Routine": 0.999,
+        "Urgent": 0.001
+      },
+      "is_correct": true,
+      "rationale": "Benign self-limited respiratory symptom."
+    },
+    {
+      "id": "ROUT-07",
+      "category": "Routine/Derm",
+      "text": "Small dry itchy eczema patch on my elbow for past two weeks, would like a mild hydrocortisone recommendation",
+      "input_to_model": "small dry itchy eczema patch elbow past week like mild hydrocortisone recommendation",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.9994,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Minor localized chronic dermatologic issue."
+    },
+    {
+      "id": "ROUT-08",
+      "category": "Routine/Allergy",
+      "text": "Seasonal pollen allergies acting up with mild itchy watery eyes, need repeat antihistamine eye drops",
+      "input_to_model": "seasonal pollen allergy act mild itchy watery eye need repeat antihistamine eye drop",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0008,
+        "Routine": 0.9992,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Mild allergic conjunctivitis."
+    },
+    {
+      "id": "ROUT-09",
+      "category": "Routine/Chronic",
+      "text": "Mild ongoing knee stiffness after morning walks, diagnosed with mild osteoarthritis 2 years ago",
+      "input_to_model": "mild ongoing knee stiffness morning walk diagnose mild osteoarthritis year ago",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.9994,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Stable chronic degenerative joint condition."
+    },
+    {
+      "id": "ROUT-10",
+      "category": "Routine/Admin",
+      "text": "Need a doctor note for return to work after recovering from a mild stomach bug earlier this week",
+      "input_to_model": "need doctor note return work recover mild stomach bug early week",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.9994,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Administrative clearance / return-to-work form."
+    },
+    {
+      "id": "TYPO-01",
+      "category": "Spelling/Emergency",
+      "text": "chesst payne radiate to left arm cant breeth sweeting alot feal like dieng",
+      "input_to_model": "chesst payne radiate left arm cannot_breathe sweete alot feal like dieng",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9987,
+        "Routine": 0.0,
+        "Urgent": 0.0013
+      },
+      "is_correct": true,
+      "rationale": "Misspelled severe cardiac/respiratory emergency."
+    },
+    {
+      "id": "TYPO-02",
+      "category": "Spelling/Emergency",
+      "text": "haevy bleedin spurting cant stop it loosing conciousnes",
+      "input_to_model": "haevy bleedin spurt no no_stop no_loose no_conciousne",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9918,
+        "Routine": 0.0082,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Misspelled arterial hemorrhage and syncope."
+    },
+    {
+      "id": "TYPO-03",
+      "category": "Spelling/Urgent",
+      "text": "bad headacke throbbing cant sleep throwing up since yesturday night",
+      "input_to_model": "bad headacke throb cannot_sleep throw yesturday night",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.0,
+        "Urgent": 0.9994
+      },
+      "is_correct": true,
+      "rationale": "Misspelled severe migraine with emesis."
+    },
+    {
+      "id": "TYPO-04",
+      "category": "Spelling/Urgent",
+      "text": "sprained my ankel real bad swolen and bruized cant walk on it",
+      "input_to_model": "sprain ankel real bad swolen bruize cannot_walk",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0005,
+        "Routine": 0.0,
+        "Urgent": 0.9995
+      },
+      "is_correct": true,
+      "rationale": "Misspelled acute orthopedic trauma."
+    },
+    {
+      "id": "TYPO-05",
+      "category": "Spelling/Routine",
+      "text": "need medecin refil for my presure pills ran out yestarday thanx",
+      "input_to_model": "need medecin refil presure pill run yestarday thanx",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.9994,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Misspelled medication refill request."
+    },
+    {
+      "id": "TYPO-06",
+      "category": "Spelling/Routine",
+      "text": "slite caugh and snotty nose fealing ok just need check",
+      "input_to_model": "slite caugh snotty nose feale ok need check",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.9994,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Misspelled mild cold."
+    },
+    {
+      "id": "AMB-01",
+      "category": "Ambiguous/Emergency",
+      "text": "I feel very strange in my chest, heavy tightness and sudden cold sweat making me dizzy",
+      "input_to_model": "feel strange chest heavy tightness sudden cold sweat make dizzy",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.997,
+        "Routine": 0.0023,
+        "Urgent": 0.0007
+      },
+      "is_correct": true,
+      "rationale": "Atypical presentation of cardiac ischemia with diaphoresis."
+    },
+    {
+      "id": "AMB-02",
+      "category": "Ambiguous/Emergency",
+      "text": "My head feels funny and one side of my body feels completely numb and weak",
+      "input_to_model": "head feel funny body feel completely numb weak",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9915,
+        "Routine": 0.0085,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Colloquial description of acute hemiparesis / stroke."
+    },
+    {
+      "id": "AMB-03",
+      "category": "Ambiguous/Urgent",
+      "text": "Severe burning sensation when I pee and lower belly ache for past two days",
+      "input_to_model": "severe burn sensation pee low belly ache past day",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0005,
+        "Routine": 0.0,
+        "Urgent": 0.9995
+      },
+      "is_correct": true,
+      "rationale": "Acute urinary tract infection / cystitis."
+    },
+    {
+      "id": "AMB-04",
+      "category": "Ambiguous/Routine",
+      "text": "A little bit of blood when I blow my nose due to dry winter weather, no other problems",
+      "input_to_model": "little bit blood blow nose dry winter weather no no_problem",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.9994,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Minor epistaxis from dry mucosal membranes, benign."
+    },
+    {
+      "id": "AMB-05",
+      "category": "Ambiguous/Routine",
+      "text": "Feeling slightly tired after a busy work week and neck is a bit stiff from computer",
+      "input_to_model": "feel slightly tired busy work week neck bit stiff computer",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0009,
+        "Routine": 0.9991,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Ergonomic muscle fatigue, normal routine complaint."
+    },
+    {
+      "id": "PORTAL-01",
+      "category": "PatientPortal/Emergency",
+      "text": "[Reported Symptoms: Chest Pressure / Radiating Pain | Duration: Just started (< 2 hours)] Severe squeezing chest pressure radiating to left arm and jaw, sweating and nausea",
+      "input_to_model": "report symptom chest pressure radiate pain duration start hour severe squeeze chest pressure radiate leave arm jaw sweating nausea",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9961,
+        "Routine": 0.0,
+        "Urgent": 0.0039
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for acute STEMI."
+    },
+    {
+      "id": "PORTAL-02",
+      "category": "PatientPortal/Emergency",
+      "text": "[Reported Symptoms: Difficulty Breathing | Duration: Just started (< 2 hours)] Gasping for breath, inhaler not working, turning pale and dizzy",
+      "input_to_model": "report symptom difficulty breathe duration start hour gasp breath inhaler not_working turn pale dizzy",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9989,
+        "Routine": 0.0,
+        "Urgent": 0.0011
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for acute respiratory failure."
+    },
+    {
+      "id": "PORTAL-03",
+      "category": "PatientPortal/Emergency",
+      "text": "[Reported Symptoms: Slurred Speech / Facial Droop | Duration: Just started (< 2 hours)] Right side face is drooping, cannot lift arm, words coming out jumbled",
+      "input_to_model": "report symptom slur speech facial droop duration start hour right face droop no no_lift no_arm word come jumbled",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9988,
+        "Routine": 0.0,
+        "Urgent": 0.0012
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for acute stroke."
+    },
+    {
+      "id": "PORTAL-04",
+      "category": "PatientPortal/Emergency",
+      "text": "[Reported Symptoms: Uncontrolled Bleeding | Duration: Just started (< 2 hours)] Deep cut on arm spurting bright red blood, towels soaked through",
+      "input_to_model": "report symptom uncontrolled bleed duration start hour deep cut arm spurt bright red blood towel soak",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9983,
+        "Routine": 0.0,
+        "Urgent": 0.0017
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for uncontrolled arterial hemorrhage."
+    },
+    {
+      "id": "PORTAL-05",
+      "category": "PatientPortal/Emergency",
+      "text": "[Reported Symptoms: Chest Pressure / Radiating Pain, Difficulty Breathing | Duration: Just started (< 2 hours)] Patient presents with Chest Pressure / Radiating Pain, Difficulty Breathing experienced for Just started (< 2 hours).",
+      "input_to_model": "report symptom chest pressure radiate pain difficulty breathe duration start hour patient present chest pressure radiate pain difficulty breathe experience start hour",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9977,
+        "Routine": 0.0,
+        "Urgent": 0.0023
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal checkbox-only output for severe cardiopulmonary emergency."
+    },
+    {
+      "id": "PORTAL-06",
+      "category": "PatientPortal/Urgent",
+      "text": "[Reported Symptoms: Severe Pain | Duration: Just started (< 2 hours)] 10/10 stabbing abdominal pain in lower right side, vomiting bile, cannot stand upright",
+      "input_to_model": "report symptom severe pain duration start hour stab abdominal pain low right vomit bile no no_stand no_upright",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0016,
+        "Routine": 0.0,
+        "Urgent": 0.9984
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for acute appendicitis."
+    },
+    {
+      "id": "PORTAL-07",
+      "category": "PatientPortal/Urgent",
+      "text": "[Reported Symptoms: High Fever (>103\u00b0F) | Duration: 1\u20132 Days] High fever with rigors, painful flank pain and dark urine",
+      "input_to_model": "report symptom high fever f duration day high fever rigor painful flank pain dark urine",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0005,
+        "Routine": 0.0,
+        "Urgent": 0.9995
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for acute systemic infection."
+    },
+    {
+      "id": "PORTAL-08",
+      "category": "PatientPortal/Urgent",
+      "text": "[Reported Symptoms: Persistent Vomiting | Duration: 1\u20132 Days] Cannot keep liquids down for 24 hours, dizzy when standing up",
+      "input_to_model": "report symptom persistent vomiting duration day no no_liquid no_hour dizzy stand",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0,
+        "Routine": 0.0193,
+        "Urgent": 0.9807
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for dehydration."
+    },
+    {
+      "id": "PORTAL-09",
+      "category": "PatientPortal/Urgent",
+      "text": "[Reported Symptoms: Severe Headache / Migraine | Duration: 3\u20137 Days] Throbbing unilateral headache with photophobia and nausea",
+      "input_to_model": "report symptom severe headache migraine duration day throb unilateral headache photophobia nausea",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0011,
+        "Routine": 0.0,
+        "Urgent": 0.9989
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for migraine."
+    },
+    {
+      "id": "PORTAL-10",
+      "category": "PatientPortal/Urgent",
+      "text": "[Reported Symptoms: Sprain / Suspected Fracture | Duration: 1\u20132 Days] Fell on ice, wrist is visibly deformed and swollen, cannot move fingers",
+      "input_to_model": "report symptom sprain suspect fracture duration day fall ice wrist visibly deform swollen no no_finger",
+      "expected": "Urgent",
+      "predicted": "Urgent",
+      "probabilities": {
+        "Emergency": 0.0,
+        "Routine": 0.009,
+        "Urgent": 0.991
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for displaced fracture."
+    },
+    {
+      "id": "PORTAL-11",
+      "category": "PatientPortal/Routine",
+      "text": "[Reported Symptoms: Mild Cough / Runny Nose | Duration: 1\u20132 Days] Patient presents with Mild Cough / Runny Nose experienced for 1\u20132 Days.",
+      "input_to_model": "report symptom mild cough runny nose duration day patient present mild cough runny nose experience day",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0,
+        "Routine": 0.9987,
+        "Urgent": 0.0013
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal checkbox-only output for mild cold."
+    },
+    {
+      "id": "PORTAL-12",
+      "category": "PatientPortal/Routine",
+      "text": "[Reported Symptoms: Mild Cough / Runny Nose | Duration: 3\u20137 Days] Mild congestion, clear mucus, slight tickle in throat, feeling fine otherwise",
+      "input_to_model": "report symptom mild cough runny nose duration day mild congestion clear mucus slight tickle throat feel fine",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0002,
+        "Routine": 0.9995,
+        "Urgent": 0.0003
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for mild viral cold."
+    },
+    {
+      "id": "PORTAL-13",
+      "category": "PatientPortal/Routine",
+      "text": "[Reported Symptoms: Sore Throat / Congestion | Duration: 1\u20132 Days] Mild pharyngitis, drinking tea, no fever or trouble swallowing",
+      "input_to_model": "report symptom sore throat congestion duration day mild pharyngitis drink tea no no_fever no_trouble no_swallow",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0,
+        "Routine": 0.9987,
+        "Urgent": 0.0013
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for minor sore throat."
+    },
+    {
+      "id": "PORTAL-14",
+      "category": "PatientPortal/Routine",
+      "text": "[Reported Symptoms: Minor Skin Rash / Allergy | Duration: > 1 Week] Small itchy dry eczema patch on inner elbow, need cream refill",
+      "input_to_model": "report symptom minor skin rash allergy duration week small itchy dry eczema patch inner elbow need cream refill",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0006,
+        "Routine": 0.9994,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for minor rash."
+    },
+    {
+      "id": "PORTAL-15",
+      "category": "PatientPortal/Routine",
+      "text": "[Reported Symptoms: Routine Prescription Refill | Duration: > 1 Week] Patient presents with Routine Prescription Refill experienced for > 1 Week.",
+      "input_to_model": "report symptom routine prescription refill duration week patient present routine prescription refill experience week",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0007,
+        "Routine": 0.9993,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal checkbox-only output for refill."
+    },
+    {
+      "id": "PORTAL-16",
+      "category": "PatientPortal/Routine",
+      "text": "[Reported Symptoms: Routine Prescription Refill | Duration: > 1 Week] Need 90-day refill of lisinopril 10mg, asymptomatic and well",
+      "input_to_model": "report symptom routine prescription refill duration week need day refill lisinopril mg asymptomatic",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0002,
+        "Routine": 0.9995,
+        "Urgent": 0.0003
+      },
+      "is_correct": true,
+      "rationale": "Exact PatientPortal output for maintenance refill."
+    },
+    {
+      "id": "EDGE-01",
+      "category": "EdgeCase/Emergency",
+      "text": "Severe pressure across chest radiating to left jaw, but mild nausea",
+      "input_to_model": "severe pressure chest radiating leave jaw mild nausea",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9989,
+        "Routine": 0.0,
+        "Urgent": 0.0011
+      },
+      "is_correct": true,
+      "rationale": "Contains the word 'mild' which might trigger Routine classifier despite severe chest pressure."
+    },
+    {
+      "id": "EDGE-02",
+      "category": "EdgeCase/Emergency",
+      "text": "Sudden slurred speech and facial drooping, but no severe pain",
+      "input_to_model": "sudden slur speech facial drooping no no_severe no_pain",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9915,
+        "Routine": 0.0085,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Painless acute stroke presentation."
+    },
+    {
+      "id": "EDGE-03",
+      "category": "EdgeCase/Emergency",
+      "text": "Difficulty breathing, coughing up foam, heart failure history",
+      "input_to_model": "difficulty breathing cough foam heart failure history",
+      "expected": "Emergency",
+      "predicted": "Emergency",
+      "probabilities": {
+        "Emergency": 0.9989,
+        "Routine": 0.0,
+        "Urgent": 0.0011
+      },
+      "is_correct": true,
+      "rationale": "Acute pulmonary edema."
+    },
+    {
+      "id": "EDGE-04",
+      "category": "EdgeCase/Routine",
+      "text": "Need routine prescription renewal for my chronic severe asthma inhaler, currently having zero symptoms",
+      "input_to_model": "need routine prescription renewal chronic severe asthma inhaler currently asymptomatic normal",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0005,
+        "Routine": 0.9995,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Contains words 'severe' and 'asthma' but clearly states routine refill with zero symptoms."
+    },
+    {
+      "id": "EDGE-05",
+      "category": "EdgeCase/Routine",
+      "text": "Regular blood pressure checkup, previous history of heart condition but feeling completely normal today",
+      "input_to_model": "regular blood pressure checkup previous history heart condition feel asymptomatic normal",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.002,
+        "Routine": 0.998,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Contains 'heart condition' but is a routine follow-up with normal status."
+    },
+    {
+      "id": "NEG-01",
+      "category": "Negation/Routine",
+      "text": "No chest pain, no shortness of breath, just need a checkup",
+      "input_to_model": "no no_chest no_pain no no_shortness no_breath need checkup",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0004,
+        "Routine": 0.9996,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Explicit negation of cardiac symptoms in routine checkup."
+    },
+    {
+      "id": "NEG-02",
+      "category": "Negation/Routine",
+      "text": "No fever, no severe pain, mild cold symptoms",
+      "input_to_model": "no no_fever no no_severe no_pain mild cold symptom",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0007,
+        "Routine": 0.9993,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Explicit negation of high acuity symptoms in mild viral illness."
+    },
+    {
+      "id": "NEG-03",
+      "category": "Negation/Routine",
+      "text": "Small itchy dry patch on my elbow for a few days, no fever or pain.",
+      "input_to_model": "small itchy dry patch elbow day no no_fever no_pain",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0,
+        "Routine": 0.9988,
+        "Urgent": 0.0012
+      },
+      "is_correct": true,
+      "rationale": "Minor skin patch explicitly denying fever or pain."
+    },
+    {
+      "id": "NEG-04",
+      "category": "Negation/Routine",
+      "text": "Need a refill for my blood pressure pills, I do not have severe pain or fever",
+      "input_to_model": "need refill blood pressure pill no no_severe no_pain no_fever",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0008,
+        "Routine": 0.9992,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Standard refill denying pain or fever."
+    },
+    {
+      "id": "NEG-05",
+      "category": "Negation/Routine",
+      "text": "Worried about heart attack risk in the future, currently asymptomatic and feel fine",
+      "input_to_model": "worried heart attack risk future asymptomatic normal feel fine",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0008,
+        "Routine": 0.9992,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Preventative inquiry with explicitly asymptomatic status."
+    },
+    {
+      "id": "NEG-06",
+      "category": "Negation/Routine",
+      "text": "Fell down last week, no more pain, just need a checkup",
+      "input_to_model": "fall week no no_pain need checkup",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0004,
+        "Routine": 0.9996,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Resolved past injury requiring routine post-recovery review."
+    },
+    {
+      "id": "NEG-07",
+      "category": "Negation/Routine",
+      "text": "Sprained ankle 3 weeks ago, pain is completely gone, need clearance note",
+      "input_to_model": "sprain ankle week ago no_pain need clearance note",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0,
+        "Routine": 0.9989,
+        "Urgent": 0.0011
+      },
+      "is_correct": true,
+      "rationale": "Resolved orthopedic issue requesting return-to-activity clearance."
+    },
+    {
+      "id": "NEG-08",
+      "category": "Negation/Routine",
+      "text": "History of asthma, need standard inhaler refill, breathing is completely normal",
+      "input_to_model": "history asthma need standard inhaler refill breathing completely normal",
+      "expected": "Routine",
+      "predicted": "Routine",
+      "probabilities": {
+        "Emergency": 0.0007,
+        "Routine": 0.9993,
+        "Urgent": 0.0
+      },
+      "is_correct": true,
+      "rationale": "Chronic condition maintenance with normal current breathing."
+    }
+  ]
+}
