@@ -10,6 +10,73 @@ import {
 import toast from 'react-hot-toast';
 import { API_URL, WS_URL } from '../config';
 
+// ============================================================
+// CLINIC TIMEZONE HELPERS (Malaysia Standard Time, Asia/Kuala_Lumpur, UTC+8)
+// ============================================================
+export const getClinicSlotInfo = (dateInput) => {
+  if (!dateInput) return { clinicDate: '', clinicSlot: '' };
+
+  if (typeof dateInput === 'object' && !(dateInput instanceof Date)) {
+    if (dateInput.clinic_date && dateInput.clinic_slot) {
+      return { clinicDate: dateInput.clinic_date, clinicSlot: dateInput.clinic_slot };
+    }
+    if (dateInput.scheduled_time) {
+      return getClinicSlotInfo(dateInput.scheduled_time);
+    }
+  }
+
+  let d;
+  if (dateInput instanceof Date) {
+    d = dateInput;
+  } else if (typeof dateInput === 'string') {
+    const hasTz = dateInput.endsWith('Z') || /[+-]\d{2}(:?\d{2})?$/.test(dateInput);
+    if (!hasTz && dateInput.includes('T')) {
+      d = new Date(`${dateInput}Z`);
+    } else {
+      d = new Date(dateInput);
+    }
+  } else {
+    d = new Date(dateInput);
+  }
+
+  if (isNaN(d.getTime())) return { clinicDate: '', clinicSlot: '' };
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kuala_Lumpur',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  });
+
+  const parts = formatter.formatToParts(d);
+  let year = '', month = '', day = '', hour = '00', minute = '00';
+  for (const p of parts) {
+    if (p.type === 'year') year = p.value;
+    if (p.type === 'month') month = p.value.padStart(2, '0');
+    if (p.type === 'day') day = p.value.padStart(2, '0');
+    if (p.type === 'hour') hour = p.value.padStart(2, '0');
+    if (p.type === 'minute') minute = p.value.padStart(2, '0');
+  }
+
+  const clinicDate = `${year}-${month}-${day}`;
+  const slotMin = parseInt(minute, 10) >= 30 ? '30' : '00';
+  const clinicSlot = `${hour}:${slotMin}`;
+
+  return { clinicDate, clinicSlot };
+};
+
+export const getClinicISOString = (dateInput) => {
+  if (!dateInput) return '';
+  const slot = getClinicSlotInfo(dateInput);
+  if (slot.clinicDate && slot.clinicSlot) {
+    return `${slot.clinicDate}T${slot.clinicSlot}`;
+  }
+  return '';
+};
+
 export default function Dashboard({ onLogout }) {
   const [queue, setQueue] = useState(() => {
     try {
@@ -40,7 +107,9 @@ export default function Dashboard({ onLogout }) {
 
   // View & Mode State
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'calendar'
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => {
+    return getClinicSlotInfo(new Date()).clinicDate || new Date().toISOString().slice(0, 10);
+  });
 
   // Admin All Records Archive State
   const [archiveList, setArchiveList] = useState(() => {
@@ -337,18 +406,17 @@ export default function Dashboard({ onLogout }) {
 
       let targetDateStr = selectedCalendarDate;
       if (overrideModal.scheduled_time) {
-        const d = new Date(overrideModal.scheduled_time);
-        if (!isNaN(d.getTime())) {
-          targetDateStr = d.toISOString().slice(0, 10);
+        const slotInfo = getClinicSlotInfo(overrideModal.scheduled_time);
+        if (slotInfo.clinicDate) {
+          targetDateStr = slotInfo.clinicDate;
         }
       }
 
       const allAppts = queue.length > 0 ? [...queue] : [...archiveList];
       const sameDayAppts = allAppts.filter(a => {
         if (!a.scheduled_time) return true;
-        const d = new Date(a.scheduled_time);
-        if (isNaN(d.getTime())) return true;
-        return d.toISOString().slice(0, 10) === targetDateStr;
+        const slotInfo = getClinicSlotInfo(a.scheduled_time);
+        return slotInfo.clinicDate === targetDateStr;
       });
 
       const updatedList = sameDayAppts.map(a => 
@@ -375,7 +443,8 @@ export default function Dashboard({ onLogout }) {
       cascadedQueue.forEach((appt, idx) => {
         if (idx < CLINIC_SLOTS.length) {
           const slot = CLINIC_SLOTS[idx];
-          const newIso = `${targetDateStr}T${slot}:00.000Z`;
+          // Standardize slot to Clinic Standard Time (Malaysia Time, UTC+8)
+          const newIso = `${targetDateStr}T${slot}:00+08:00`;
           slotUpdates.push({ id: appt._id, new_time: newIso, slot });
         }
       });
@@ -405,15 +474,24 @@ export default function Dashboard({ onLogout }) {
   };
 
   const executeScheduleOverride = async () => {
-    if (!newSchedule) return;
+    if (!newSchedule || !scheduleModal) return;
     try {
+      // Ensure the slot sent to backend is formatted in Malaysia Time (UTC+8)
+      let timeToSend;
+      if (newSchedule.includes('+') || newSchedule.endsWith('Z')) {
+        timeToSend = newSchedule;
+      } else {
+        // newSchedule is "YYYY-MM-DDTHH:mm", append seconds and Malaysia Timezone offset +08:00
+        timeToSend = `${newSchedule}:00+08:00`;
+      }
+
       const response = await fetch(`${API_URL}/override-schedule/${scheduleModal._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-        body: JSON.stringify({ new_time: new Date(newSchedule).toISOString() })
+        body: JSON.stringify({ new_time: timeToSend })
       });
       if (response.ok) {
-        toast.success('Schedule manually updated');
+        toast.success('Schedule manually updated in Malaysia Time');
         setScheduleModal(null);
         fetchQueue();
       } else {
@@ -1655,8 +1733,12 @@ export default function Dashboard({ onLogout }) {
                           <div className="flex-1">
                             {appt.scheduled_time ? (
                               <>
-                                <p className="leading-tight">{new Date(appt.scheduled_time).toLocaleDateString()}</p>
-                                <p className="text-xs opacity-80">{new Date(appt.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                <p className="leading-tight">
+                                  {new Intl.DateTimeFormat('en-MY', { timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'medium' }).format(new Date(appt.scheduled_time))}
+                                </p>
+                                <p className="text-xs opacity-80">
+                                  {new Intl.DateTimeFormat('en-MY', { timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(appt.scheduled_time))} (MYT)
+                                </p>
                               </>
                             ) : (
                               <p>Not Scheduled</p>
@@ -1665,10 +1747,11 @@ export default function Dashboard({ onLogout }) {
                           <button onClick={(e) => { 
                             e.stopPropagation();
                             setScheduleModal(appt); 
-                            if(appt.scheduled_time) {
-                              const tzoffset = (new Date()).getTimezoneOffset() * 60000;
-                              const localISOTime = (new Date(new Date(appt.scheduled_time) - tzoffset)).toISOString().slice(0, 16);
-                              setNewSchedule(localISOTime);
+                            if (appt.scheduled_time) {
+                              const isoStr = getClinicISOString(appt.scheduled_time);
+                              setNewSchedule(isoStr || `${selectedCalendarDate}T09:00`);
+                            } else {
+                              setNewSchedule(`${selectedCalendarDate}T09:00`);
                             }
                           }}
                             className="p-1.5 text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-800/50 rounded transition ml-1" title="Edit Schedule">
@@ -1806,20 +1889,25 @@ export default function Dashboard({ onLogout }) {
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-xl rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
             <div>
-              <h3 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                <CalendarDays className="w-5 h-5 text-teal-600 dark:text-teal-400" /> Clinic Schedule & Slot Matrix
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                30-minute clinical triage blocks (09:00 - 17:00 UTC) with dynamic emergency preemption
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5 text-teal-600 dark:text-teal-400" /> Clinic Schedule & Slot Matrix
+                </h3>
+                <span className="px-3 py-1 bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-700 rounded-full text-xs font-bold shadow-sm inline-flex items-center gap-1.5">
+                  🏥 Clinic Operating Time: 09:00 - 17:00 (Malaysia Time / UTC+8)
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                30-minute clinical triage blocks standardized to Malaysia Standard Time (MYT / UTC+8) with dynamic emergency preemption
               </p>
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
-                  const d = new Date(selectedCalendarDate);
-                  d.setDate(d.getDate() - 1);
-                  setSelectedCalendarDate(d.toISOString().slice(0, 10));
+                  const [y, m, d] = selectedCalendarDate.split('-').map(Number);
+                  const prevDate = new Date(Date.UTC(y, m - 1, d - 1, 12, 0, 0));
+                  setSelectedCalendarDate(prevDate.toISOString().slice(0, 10));
                 }}
                 className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 title="Previous Day"
@@ -1834,9 +1922,9 @@ export default function Dashboard({ onLogout }) {
               />
               <button
                 onClick={() => {
-                  const d = new Date(selectedCalendarDate);
-                  d.setDate(d.getDate() + 1);
-                  setSelectedCalendarDate(d.toISOString().slice(0, 10));
+                  const [y, m, d] = selectedCalendarDate.split('-').map(Number);
+                  const nextDate = new Date(Date.UTC(y, m - 1, d + 1, 12, 0, 0));
+                  setSelectedCalendarDate(nextDate.toISOString().slice(0, 10));
                 }}
                 className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 title="Next Day"
@@ -1844,7 +1932,7 @@ export default function Dashboard({ onLogout }) {
                 <ChevronRight className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setSelectedCalendarDate(new Date().toISOString().slice(0, 10))}
+                onClick={() => setSelectedCalendarDate(getClinicSlotInfo(new Date()).clinicDate)}
                 className="px-3 py-1.5 bg-teal-50 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 text-xs font-bold rounded-lg border border-teal-200 dark:border-teal-800 hover:bg-teal-100"
               >
                 Today
@@ -1861,24 +1949,8 @@ export default function Dashboard({ onLogout }) {
               const allAppointments = queue.length > 0 ? queue : archiveList;
               const booked = allAppointments.find(a => {
                 if (!a.scheduled_time) return false;
-                const d = new Date(a.scheduled_time);
-                if (isNaN(d.getTime())) return false;
-                
-                const utcDate = d.toISOString().slice(0, 10);
-                const utcHour = String(d.getUTCHours()).padStart(2, '0');
-                const utcMin = d.getUTCMinutes() >= 30 ? '30' : '00';
-                const utcSlot = `${utcHour}:${utcMin}`;
-
-                const localY = d.getFullYear();
-                const localM = String(d.getMonth() + 1).padStart(2, '0');
-                const localD = String(d.getDate()).padStart(2, '0');
-                const localDate = `${localY}-${localM}-${localD}`;
-                const localHour = String(d.getHours()).padStart(2, '0');
-                const localMin = d.getMinutes() >= 30 ? '30' : '00';
-                const localSlot = `${localHour}:${localMin}`;
-
-                return (utcDate === selectedCalendarDate && utcSlot === slotTime) ||
-                       (localDate === selectedCalendarDate && localSlot === slotTime);
+                const slotInfo = getClinicSlotInfo(a);
+                return slotInfo.clinicDate === selectedCalendarDate && slotInfo.clinicSlot === slotTime;
               });
 
               return (
@@ -2237,14 +2309,17 @@ export default function Dashboard({ onLogout }) {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setScheduleModal(null)}>
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-bold dark:text-white mb-2">Edit Schedule Time</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Manually set the appointment time for <strong>{scheduleModal.patient_name}</strong>.
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              Set appointment time for <strong>{scheduleModal.patient_name}</strong>.
             </p>
+            <div className="mb-4 p-2.5 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-xl text-xs text-teal-800 dark:text-teal-200 font-semibold flex items-center gap-1.5">
+              <span>🇲🇾 Clinic Standard Time (MYT / UTC+8)</span>
+            </div>
             <input 
               type="datetime-local" 
               value={newSchedule} 
               onChange={(e) => setNewSchedule(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 mb-6"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 mb-6 font-semibold"
             />
             <div className="flex gap-3">
               <button onClick={() => setScheduleModal(null)} className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-xl font-medium">Cancel</button>

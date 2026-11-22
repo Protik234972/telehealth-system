@@ -266,6 +266,48 @@ class TelehealthAPITests(unittest.TestCase):
         rounded = main_module.CalendarManager._round_to_slot(datetime(2026, 11, 20, 10, 16))
         self.assertEqual((rounded.hour, rounded.minute), (10, 30))
 
+    def test_calendar_manager_malaysia_timezone_and_deterministic_slots(self):
+        from datetime import timezone, timedelta
+        # 1. Clinic timezone is explicitly UTC+8 (Malaysia Time)
+        self.assertEqual(main_module.CLINIC_TZ, timezone(timedelta(hours=8)))
+
+        # 2. 01:30 UTC is exactly 09:30 AM in Malaysia Time (UTC+8)
+        dt_utc = datetime(2026, 11, 23, 1, 30, tzinfo=timezone.utc)
+        dt_myt = main_module.CalendarManager.ensure_clinic_tz(dt_utc)
+        self.assertEqual(dt_myt.hour, 9)
+        self.assertEqual(dt_myt.minute, 30)
+
+        # 3. ISO string parsing with UTC Z
+        iso_str = "2026-11-23T01:30:00Z"
+        from_iso = main_module.CalendarManager.ensure_clinic_tz(iso_str)
+        self.assertEqual((from_iso.hour, from_iso.minute), (9, 30))
+
+        # 4. Enforce business hours in MYT: 17:00 rolls over to next day 09:00
+        closing_dt = datetime(2026, 11, 23, 17, 0, tzinfo=main_module.CLINIC_TZ)
+        next_day_slot = main_module.CalendarManager._enforce_business_hours(closing_dt)
+        self.assertEqual(next_day_slot.day, 24)
+        self.assertEqual(next_day_slot.hour, 9)
+        self.assertEqual(next_day_slot.minute, 0)
+
+        # 5. Verify /submit-symptoms generates clinic_date and clinic_slot in details
+        patient_login = self._register_and_login(username="pat_myt")
+        headers = {"Authorization": f"Bearer {patient_login['access_token']}"}
+        r = self.client.post(
+            "/submit-symptoms",
+            json={
+                "patient_name": "Tashfiq Malaysia Patient",
+                "contact_info": "tashfiq@example.com",
+                "symptom_text": "Need routine medication refill for seasonal pollen allergy symptoms.",
+            },
+            headers=headers,
+        )
+        self.assertEqual(r.status_code, 200)
+        details = r.json()["appointment_details"]
+        self.assertIn("clinic_date", details)
+        self.assertIn("clinic_slot", details)
+        self.assertRegex(details["clinic_date"], r"^\d{4}-\d{2}-\d{2}$")
+        self.assertRegex(details["clinic_slot"], r"^\d{2}:\d{2}$")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

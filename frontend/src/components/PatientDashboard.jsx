@@ -8,6 +8,67 @@ import {
 } from 'lucide-react';
 import { API_URL, WS_URL } from '../config';
 
+// Timezone and display helper for Patient Dashboard (Clinic standard: Malaysia Time / UTC+8)
+const renderScheduledTime = (dateInput, dateStyle = 'full') => {
+  if (!dateInput) return null;
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+
+  // Format explicitly in Malaysia Standard Time (MYT / UTC+8)
+  const mytFormatted = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kuala_Lumpur',
+    dateStyle: dateStyle,
+    timeStyle: 'short'
+  }).format(d);
+
+  // Check if browser timezone offset matches UTC+8 (-480 minutes)
+  const isUtc8 = d.getTimezoneOffset() === -480;
+
+  if (isUtc8) {
+    return (
+      <span className="font-semibold text-gray-800 dark:text-gray-200">
+        {mytFormatted} <span className="text-teal-600 dark:text-teal-400 font-bold">(MYT / Malaysia Time)</span>
+      </span>
+    );
+  }
+
+  // If browser is NOT in UTC+8, calculate local time and friendly timezone label
+  const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  let tzDisplayName = '';
+  try {
+    const parts = new Intl.DateTimeFormat(undefined, {
+      timeZoneName: 'short',
+      hour: 'numeric',
+      minute: 'numeric'
+    }).formatToParts(d);
+    const tzPart = parts.find(p => p.type === 'timeZoneName');
+    if (tzPart) tzDisplayName = tzPart.value;
+  } catch (e) {}
+
+  if (userTimeZone.includes('Dhaka')) {
+    tzDisplayName = 'Bangladesh Time';
+  } else if (userTimeZone.includes('Kuala_Lumpur') || userTimeZone.includes('Singapore')) {
+    tzDisplayName = 'Malaysia Time';
+  }
+
+  const localTimeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const localFullStr = d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5 font-semibold text-gray-800 dark:text-gray-200">
+      <span>
+        {mytFormatted} <span className="text-teal-600 dark:text-teal-400 font-bold">(MYT / Malaysia Time)</span>
+      </span>
+      <span 
+        title={`Your device local time: ${localFullStr}`}
+        className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-sm cursor-help"
+      >
+        ({localTimeStr} {tzDisplayName || 'Local Time'})
+      </span>
+    </span>
+  );
+};
+
 export default function PatientDashboard({ onLogout }) {
   const loggedInUser = localStorage.getItem('username') || '';
   const [appointments, setAppointments] = useState([]);
@@ -402,13 +463,13 @@ export default function PatientDashboard({ onLogout }) {
                         </div>
 
                         {/* Scheduled Appointment Date/Time */}
-                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-200 mb-2">
                           <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
-                          <span>
-                            {appt.scheduled_time 
-                              ? new Date(appt.scheduled_time).toLocaleString([], { dateStyle: 'full', timeStyle: 'short' })
-                              : `Submitted: ${new Date(appt.submission_time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`}
-                          </span>
+                          {appt.scheduled_time ? (
+                            renderScheduledTime(appt.scheduled_time, 'full')
+                          ) : (
+                            <span>Submitted: {new Date(appt.submission_time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                          )}
                         </div>
 
                         {/* Symptoms Summary */}
@@ -430,20 +491,20 @@ export default function PatientDashboard({ onLogout }) {
                                 </p>
                               </div>
                             </div>
-                            <div className="flex gap-3">
+                            <div className="flex flex-col sm:flex-row gap-3">
                               {appt.original_time && (
                                 <div className="flex-1 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-2.5">
                                   <p className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">❌ Previous</p>
-                                  <p className="text-sm text-red-700 dark:text-red-300 line-through mt-0.5">
-                                    {new Date(appt.original_time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                                  </p>
+                                  <div className="text-xs text-red-700 dark:text-red-300 line-through mt-0.5">
+                                    {renderScheduledTime(appt.original_time, 'medium')}
+                                  </div>
                                 </div>
                               )}
                               <div className="flex-1 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-2.5">
                                 <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-wider">✅ New Time</p>
-                                <p className="text-sm text-green-700 dark:text-green-300 font-bold mt-0.5">
-                                  {new Date(appt.scheduled_time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                                </p>
+                                <div className="text-xs text-green-700 dark:text-green-300 font-bold mt-0.5">
+                                  {renderScheduledTime(appt.scheduled_time, 'medium')}
+                                </div>
                               </div>
                             </div>
                             <p className="text-[10px] text-amber-600 dark:text-amber-500 mt-2 italic">
@@ -559,7 +620,12 @@ export default function PatientDashboard({ onLogout }) {
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                             <span>
-                              <strong>Date Completed:</strong> {completedDate ? new Date(completedDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Recorded'}
+                              <strong>Date Completed:</strong> {completedDate ? (
+                                <span className="inline-flex items-center gap-1">
+                                  {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(completedDate))}
+                                  <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold">(MYT)</span>
+                                </span>
+                              ) : 'Recorded'}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">

@@ -3,8 +3,8 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional
-from datetime import datetime, timedelta
+from typing import List, Optional, Union
+from datetime import datetime, timedelta, timezone
 import os
 import re
 import joblib
@@ -93,10 +93,30 @@ except Exception as e:
     triage_model = None
     print(f"Warning: Could not load AI model at {MODEL_PATH}. Error: {e}")
 
+# --- CLINIC TIMEZONE CONFIGURATION ---
+# SEGi University Clinic operating timezone: Malaysia Time (MYT / UTC+8)
+CLINIC_TZ = timezone(timedelta(hours=8))
+
 class CalendarManager:
     @staticmethod
+    def ensure_clinic_tz(dt: Union[datetime, str]) -> datetime:
+        """
+        Normalize a datetime or ISO string to Malaysia Time (CLINIC_TZ, UTC+8).
+        If naive, sets tzinfo=CLINIC_TZ.
+        If aware, converts to CLINIC_TZ using astimezone.
+        """
+        if isinstance(dt, str):
+            dt = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=CLINIC_TZ)
+        return dt.astimezone(CLINIC_TZ)
+
+    @staticmethod
     def _round_to_slot(dt: datetime) -> datetime:
-        """Round a datetime to the nearest 30-minute block."""
+        """Round a datetime to the nearest 30-minute block in Malaysia Time."""
+        is_naive = (dt.tzinfo is None)
+        if not is_naive:
+            dt = dt.astimezone(CLINIC_TZ)
         discard = timedelta(minutes=dt.minute % 30, seconds=dt.second, microseconds=dt.microsecond)
         dt -= discard
         if discard >= timedelta(minutes=15):
@@ -105,16 +125,25 @@ class CalendarManager:
     
     @staticmethod
     def _enforce_business_hours(dt: datetime) -> datetime:
-        """Push time into 9 AM - 5 PM window."""
+        """
+        Push time into 9 AM - 5 PM window strictly in Malaysia Time (MYT / UTC+8).
+        Operating hours: 09:00 - 17:00 MYT (slots from 09:00 to 16:30).
+        """
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(CLINIC_TZ)
         if dt.hour < 9:
-            dt = dt.replace(hour=9, minute=0)
+            dt = dt.replace(hour=9, minute=0, second=0, microsecond=0)
         elif dt.hour >= 17:
-            dt = (dt + timedelta(days=1)).replace(hour=9, minute=0)
+            dt = (dt + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
         return dt
 
     @staticmethod
     async def get_next_available_slot(urgency: str) -> datetime:
-        now = datetime.utcnow()
+        """
+        Calculate next available slot in Malaysia Time (MYT / UTC+8).
+        Operating hours: 09:00 to 17:00 MYT, 30-minute clinic slots.
+        """
+        now = datetime.now(timezone.utc).astimezone(CLINIC_TZ)
         if urgency == "Emergency":
             scheduled = now + timedelta(minutes=30)
         elif urgency == "Urgent":
@@ -127,7 +156,15 @@ class CalendarManager:
         # Loop until we find a completely free slot
         while True:
             scheduled = CalendarManager._enforce_business_hours(scheduled)
+            slot_date = scheduled.strftime("%Y-%m-%d")
+            slot_time = scheduled.strftime("%H:%M")
             conflict = await db.appointments.find_one({"scheduled_time": scheduled})
+            if not conflict:
+                conflict = await db.appointments.find_one({
+                    "clinic_date": slot_date,
+                    "clinic_slot": slot_time,
+                    "final_status": {"$ne": "Dismissed"}
+                })
             if conflict:
                 scheduled += timedelta(minutes=30)
             else:
@@ -138,10 +175,11 @@ class CalendarManager:
     @staticmethod
     async def preempt_for_emergency(background_tasks: BackgroundTasks) -> datetime:
         """
-        Emergency Preemption: Find the earliest pending non-emergency appointment,
-        steal its time slot for the emergency patient, and reschedule the bumped patient.
+        Emergency Preemption in Malaysia Time (MYT):
+        Find the earliest pending non-emergency appointment, steal its time slot
+        for the emergency patient, and reschedule the bumped patient.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).astimezone(CLINIC_TZ)
         
         # Find the earliest scheduled non-emergency pending appointment
         bumped = await db.appointments.find_one(
@@ -158,13 +196,21 @@ class CalendarManager:
             return await CalendarManager.get_next_available_slot("Emergency")
         
         # Steal the bumped patient's time slot
-        stolen_time = bumped["scheduled_time"]
+        stolen_time = CalendarManager.ensure_clinic_tz(bumped["scheduled_time"])
         
         # Find a new slot for the bumped patient (search AFTER the stolen slot)
         new_slot_for_bumped = CalendarManager._round_to_slot(stolen_time + timedelta(minutes=30))
         while True:
             new_slot_for_bumped = CalendarManager._enforce_business_hours(new_slot_for_bumped)
+            slot_date = new_slot_for_bumped.strftime("%Y-%m-%d")
+            slot_time = new_slot_for_bumped.strftime("%H:%M")
             conflict = await db.appointments.find_one({"scheduled_time": new_slot_for_bumped})
+            if not conflict:
+                conflict = await db.appointments.find_one({
+                    "clinic_date": slot_date,
+                    "clinic_slot": slot_time,
+                    "final_status": {"$ne": "Dismissed"}
+                })
             if conflict:
                 new_slot_for_bumped += timedelta(minutes=30)
             else:
@@ -175,6 +221,8 @@ class CalendarManager:
             {"_id": bumped["_id"]},
             {"$set": {
                 "scheduled_time": new_slot_for_bumped,
+                "clinic_date": new_slot_for_bumped.strftime("%Y-%m-%d"),
+                "clinic_slot": new_slot_for_bumped.strftime("%H:%M"),
                 "preempted": True,
                 "preempted_at": now,
                 "original_time": stolen_time,
@@ -693,6 +741,10 @@ async def submit_symptoms(request: SymptomRequest, background_tasks: BackgroundT
     else:
         scheduled_time = await CalendarManager.get_next_available_slot(urgency)
     
+    clinic_dt = CalendarManager.ensure_clinic_tz(scheduled_time)
+    clinic_date = clinic_dt.strftime("%Y-%m-%d")
+    clinic_slot = clinic_dt.strftime("%H:%M")
+    
     appointment = {
         "username": current_user["username"],
         "patient_name": request.patient_name,
@@ -702,8 +754,10 @@ async def submit_symptoms(request: SymptomRequest, background_tasks: BackgroundT
         "critical_keywords": extracted,
         "triage_source": source,
         "ai_confidence": round(float(confidence), 4),
-        "submission_time": datetime.utcnow(),
+        "submission_time": datetime.now(timezone.utc),
         "scheduled_time": scheduled_time,
+        "clinic_date": clinic_date,
+        "clinic_slot": clinic_slot,
         "final_status": "Pending"
     }
     
@@ -759,6 +813,13 @@ async def get_queue(current_user: dict = Depends(get_current_user)):
         
         for appt in appointments:
             appt["_id"] = str(appt["_id"])
+            st = appt.get("scheduled_time")
+            if st:
+                cdt = CalendarManager.ensure_clinic_tz(st)
+                if not appt.get("clinic_date"):
+                    appt["clinic_date"] = cdt.strftime("%Y-%m-%d")
+                if not appt.get("clinic_slot"):
+                    appt["clinic_slot"] = cdt.strftime("%H:%M")
             
         return {"queue": appointments}
     except Exception as e:
@@ -799,6 +860,7 @@ def _send_email(to_email: str, subject: str, html_body: str):
 
 def send_real_email(patient_email: str, patient_name: str, doctor_name: str, scheduled_time: datetime, notes: str):
     """Send appointment confirmation email when assigned to a doctor."""
+    scheduled_time = CalendarManager.ensure_clinic_tz(scheduled_time)
     html = f"""
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
@@ -808,8 +870,8 @@ def send_real_email(patient_email: str, patient_name: str, doctor_name: str, sch
             <p style="font-size: 16px; color: #374151;">Dear <strong>{patient_name}</strong>,</p>
             <p style="color: #6b7280;">You have been assigned to <strong>Dr. {doctor_name}</strong>.</p>
             <div style="background: #f0fdf4; border-left: 4px solid #22c55e; padding: 16px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0; color: #166534; font-weight: bold;">📅 Scheduled Time</p>
-                <p style="margin: 5px 0 0; color: #15803d; font-size: 18px;">{scheduled_time.strftime('%B %d, %Y at %I:%M %p')}</p>
+                <p style="margin: 0; color: #166534; font-weight: bold;">📅 Scheduled Time (Malaysia Time / MYT)</p>
+                <p style="margin: 5px 0 0; color: #15803d; font-size: 18px;">{scheduled_time.strftime('%B %d, %Y at %I:%M %p (MYT)')}</p>
             </div>
             <p style="color: #6b7280;"><strong>Doctor's Notes:</strong><br>{notes if notes else 'No additional notes.'}</p>
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
@@ -822,6 +884,8 @@ def send_real_email(patient_email: str, patient_name: str, doctor_name: str, sch
 
 def send_reschedule_email(patient_email: str, patient_name: str, old_time: datetime, new_time: datetime):
     """Send reschedule notification email to bumped patient during emergency preemption."""
+    old_time = CalendarManager.ensure_clinic_tz(old_time)
+    new_time = CalendarManager.ensure_clinic_tz(new_time)
     html = f"""
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
@@ -832,12 +896,12 @@ def send_reschedule_email(patient_email: str, patient_name: str, old_time: datet
             <p style="color: #6b7280;">Your appointment has been rescheduled due to an incoming <strong style="color: #ef4444;">emergency case</strong> that requires immediate priority.</p>
             <div style="display: flex; gap: 12px; margin: 20px 0;">
                 <div style="flex: 1; background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; border-radius: 8px;">
-                    <p style="margin: 0; color: #991b1b; font-weight: bold; font-size: 12px;">❌ PREVIOUS TIME</p>
-                    <p style="margin: 5px 0 0; color: #dc2626; font-size: 15px; text-decoration: line-through;">{old_time.strftime('%B %d, %Y')}<br>{old_time.strftime('%I:%M %p')}</p>
+                    <p style="margin: 0; color: #991b1b; font-weight: bold; font-size: 12px;">❌ PREVIOUS TIME (MYT)</p>
+                    <p style="margin: 5px 0 0; color: #dc2626; font-size: 15px; text-decoration: line-through;">{old_time.strftime('%B %d, %Y')}<br>{old_time.strftime('%I:%M %p (MYT)')}</p>
                 </div>
                 <div style="flex: 1; background: #f0fdf4; border-left: 4px solid #22c55e; padding: 16px; border-radius: 8px;">
-                    <p style="margin: 0; color: #166534; font-weight: bold; font-size: 12px;">✅ NEW TIME</p>
-                    <p style="margin: 5px 0 0; color: #15803d; font-size: 15px; font-weight: bold;">{new_time.strftime('%B %d, %Y')}<br>{new_time.strftime('%I:%M %p')}</p>
+                    <p style="margin: 0; color: #166534; font-weight: bold; font-size: 12px;">✅ NEW TIME (MYT)</p>
+                    <p style="margin: 5px 0 0; color: #15803d; font-size: 15px; font-weight: bold;">{new_time.strftime('%B %d, %Y')}<br>{new_time.strftime('%I:%M %p (MYT)')}</p>
                 </div>
             </div>
             <p style="color: #6b7280;">We sincerely apologize for any inconvenience. If this new time does not work for you, please contact the clinic coordinator.</p>
@@ -851,6 +915,7 @@ def send_reschedule_email(patient_email: str, patient_name: str, old_time: datet
 
 def send_emergency_confirmation_email(patient_email: str, patient_name: str, scheduled_time: datetime):
     """Send confirmation to the emergency patient that they have been fast-tracked."""
+    scheduled_time = CalendarManager.ensure_clinic_tz(scheduled_time)
     html = f"""
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
@@ -860,8 +925,8 @@ def send_emergency_confirmation_email(patient_email: str, patient_name: str, sch
             <p style="font-size: 16px; color: #374151;">Dear <strong>{patient_name}</strong>,</p>
             <p style="color: #6b7280;">Your symptoms have been classified as an <strong style="color: #dc2626;">EMERGENCY</strong> by our AI triage system. You have been <strong>fast-tracked</strong> to the earliest available appointment slot.</p>
             <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 16px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0; color: #991b1b; font-weight: bold;">🚨 Your Emergency Appointment</p>
-                <p style="margin: 5px 0 0; color: #dc2626; font-size: 20px; font-weight: bold;">{scheduled_time.strftime('%B %d, %Y at %I:%M %p')}</p>
+                <p style="margin: 0; color: #991b1b; font-weight: bold;">🚨 Your Emergency Appointment (Malaysia Time / MYT)</p>
+                <p style="margin: 5px 0 0; color: #dc2626; font-size: 20px; font-weight: bold;">{scheduled_time.strftime('%B %d, %Y at %I:%M %p (MYT)')}</p>
             </div>
             <p style="color: #6b7280;">Please arrive as early as possible. A coordinator will be in touch shortly to prepare for your visit.</p>
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
@@ -984,10 +1049,18 @@ async def override_priority(appointment_id: str, override: PriorityOverride, cur
 
     # 2. Priority Cascading Slot Allocation:
     # Ensure previous emergencies stay first, new emergency comes next, and subsequent appointments shift by 1 row (+30m)
-    target_dt = appt.get("scheduled_time") or datetime.utcnow()
-    target_date = target_dt.date()
-    start_dt = datetime.combine(target_date, datetime.min.time())
-    end_dt = datetime.combine(target_date, datetime.max.time())
+    target_dt = appt.get("scheduled_time") or datetime.now(CLINIC_TZ)
+    if isinstance(target_dt, str):
+        target_dt = datetime.fromisoformat(target_dt.replace("Z", "+00:00"))
+    is_aware = hasattr(target_dt, "tzinfo") and target_dt.tzinfo is not None
+    clinic_target = CalendarManager.ensure_clinic_tz(target_dt)
+    target_date = clinic_target.date()
+    if is_aware:
+        start_dt = datetime.combine(target_date, datetime.min.time(), tzinfo=CLINIC_TZ)
+        end_dt = datetime.combine(target_date, datetime.max.time(), tzinfo=CLINIC_TZ)
+    else:
+        start_dt = datetime.combine(target_date, datetime.min.time())
+        end_dt = datetime.combine(target_date, datetime.max.time())
     
     day_appts = await db.appointments.find({
         "final_status": "Pending",
@@ -1022,16 +1095,28 @@ async def override_priority(appointment_id: str, override: PriorityOverride, cur
     for idx, item in enumerate(cascaded):
         if idx < len(CLINIC_HOURS):
             h, m = CLINIC_HOURS[idx]
-            slot_dt = datetime(target_date.year, target_date.month, target_date.day, h, m, 0)
+            if is_aware:
+                slot_dt = datetime(target_date.year, target_date.month, target_date.day, h, m, 0, tzinfo=CLINIC_TZ)
+            else:
+                slot_dt = datetime(target_date.year, target_date.month, target_date.day, h, m, 0)
+            slot_date_str = target_date.strftime("%Y-%m-%d")
+            slot_time_str = f"{h:02d}:{m:02d}"
             await db.appointments.update_one(
                 {"_id": item["_id"]},
-                {"$set": {"scheduled_time": slot_dt}}
+                {"$set": {
+                    "scheduled_time": slot_dt,
+                    "clinic_date": slot_date_str,
+                    "clinic_slot": slot_time_str
+                }}
             )
             if str(item["_id"]) == str(appointment_id):
                 new_time = slot_dt
 
     if not new_time:
-        new_time = datetime(target_date.year, target_date.month, target_date.day, 9, 0, 0)
+        if is_aware:
+            new_time = datetime(target_date.year, target_date.month, target_date.day, 9, 0, 0, tzinfo=CLINIC_TZ)
+        else:
+            new_time = datetime(target_date.year, target_date.month, target_date.day, 9, 0, 0)
 
     # Log into clinical audit trail
     await db.audit_logs.insert_one({
@@ -1073,6 +1158,13 @@ async def get_all_appointments(current_user: dict = Depends(get_current_user)):
     appointments.sort(key=lambda x: x.get("submission_time") or datetime.min, reverse=True)
     for appt in appointments:
         appt["_id"] = str(appt["_id"])
+        st = appt.get("scheduled_time")
+        if st:
+            cdt = CalendarManager.ensure_clinic_tz(st)
+            if not appt.get("clinic_date"):
+                appt["clinic_date"] = cdt.strftime("%Y-%m-%d")
+            if not appt.get("clinic_slot"):
+                appt["clinic_slot"] = cdt.strftime("%H:%M")
     return {"appointments": appointments}
 
 class ScheduleOverride(BaseModel):
@@ -1085,11 +1177,17 @@ async def override_schedule(appointment_id: str, override: ScheduleOverride, cur
         
     if not ObjectId.is_valid(appointment_id):
         raise HTTPException(status_code=400, detail="Invalid appointment ID format")
+    
+    clinic_dt = CalendarManager.ensure_clinic_tz(override.new_time)
+    clinic_date = clinic_dt.strftime("%Y-%m-%d")
+    clinic_slot = clinic_dt.strftime("%H:%M")
         
     result = await db.appointments.update_one(
         {"_id": ObjectId(appointment_id)},
         {"$set": {
-            "scheduled_time": override.new_time,
+            "scheduled_time": clinic_dt,
+            "clinic_date": clinic_date,
+            "clinic_slot": clinic_slot,
             "schedule_overridden_by": current_user["username"]
         }}
     )
@@ -1217,7 +1315,11 @@ async def get_analytics(timeframe: Optional[str] = "all", current_user: dict = D
 
         for a in target_appts:
             st = a.get("scheduled_time") or a.get("submission_time")
-            hour = st.hour if (st and 9 <= st.hour <= 17) else 9
+            if st:
+                cdt = CalendarManager.ensure_clinic_tz(st)
+                hour = cdt.hour if (9 <= cdt.hour <= 17) else 9
+            else:
+                hour = 9
             slot = f"{hour:02d}:00"
             hourly_slots[slot]["intake"] += 1
             urg = (a.get("ai_urgency_score") or "routine").lower()
