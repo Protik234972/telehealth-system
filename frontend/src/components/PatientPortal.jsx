@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { Clock, CheckSquare, Square, Stethoscope, User, Users, Edit2 } from 'lucide-react';
 import { API_URL } from '../config';
@@ -28,12 +28,16 @@ export default function PatientPortal({ onAppointmentCreated }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    if (loggedInUser && !formData.patient_name) {
-      setFormData(prev => ({ ...prev, patient_name: loggedInUser }));
+    if (!initializedRef.current && loggedInUser) {
+      if (!formData.patient_name) {
+        setFormData(prev => ({ ...prev, patient_name: loggedInUser }));
+      }
+      initializedRef.current = true;
     }
-  }, [loggedInUser, formData.patient_name]);
+  }, [loggedInUser]);
 
   const toggleSymptom = (symptom) => {
     setSelectedSymptoms(prev =>
@@ -159,10 +163,22 @@ export default function PatientPortal({ onAppointmentCreated }) {
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">
                 Patient Full Name
               </label>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
-                <Edit2 className="w-2.5 h-2.5" />
-                Editable
-              </span>
+              <div className="flex items-center gap-1.5">
+                {loggedInUser && formData.patient_name !== loggedInUser && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, patient_name: loggedInUser }))}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
+                    title={`Reset name to ${loggedInUser}`}
+                  >
+                    Use My Name ({loggedInUser})
+                  </button>
+                )}
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                  <Edit2 className="w-2.5 h-2.5" />
+                  Editable
+                </span>
+              </div>
             </div>
             <div className="relative">
               <input 
