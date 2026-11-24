@@ -1,128 +1,128 @@
 {
   "Emergency": [
     {
+      "token": "chest_pain",
+      "weight": 3.425
+    },
+    {
+      "token": "unconscious",
+      "weight": 3.284
+    },
+    {
+      "token": "severe_shortness",
+      "weight": 3.125
+    },
+    {
+      "token": "stroke_symptom",
+      "weight": 2.981
+    },
+    {
       "token": "uncontrollable",
-      "weight": 2.961
+      "weight": 2.894
     },
     {
       "token": "bleed",
-      "weight": 2.961
+      "weight": 2.812
     },
     {
       "token": "breathe",
-      "weight": 2.878
+      "weight": 2.756
     },
     {
       "token": "struggle",
-      "weight": 2.194
+      "weight": 2.624
     },
     {
       "token": "sudden",
-      "weight": 1.945
+      "weight": 2.518
     },
     {
       "token": "breath",
-      "weight": 1.71
-    },
-    {
-      "token": "heavy",
-      "weight": 1.622
-    },
-    {
-      "token": "stop",
-      "weight": 1.622
-    },
-    {
-      "token": "catch",
-      "weight": 1.571
-    },
-    {
-      "token": "send",
-      "weight": 1.487
-    }
-  ],
-  "Routine": [
-    {
-      "token": "slightly",
-      "weight": 3.477
-    },
-    {
-      "token": "mild",
-      "weight": 3.07
-    },
-    {
-      "token": "normal",
-      "weight": 2.686
-    },
-    {
-      "token": "slight",
-      "weight": 2.441
-    },
-    {
-      "token": "routine",
-      "weight": 2.292
-    },
-    {
-      "token": "discomfort",
-      "weight": 2.088
-    },
-    {
-      "token": "bit",
-      "weight": 1.973
-    },
-    {
-      "token": "minor",
-      "weight": 1.848
-    },
-    {
-      "token": "follow",
-      "weight": 1.568
-    },
-    {
-      "token": "want",
-      "weight": 1.461
+      "weight": 2.405
     }
   ],
   "Urgent": [
     {
-      "token": "bad",
-      "weight": 2.851
+      "token": "high_fever",
+      "weight": 3.312
     },
     {
-      "token": "pain",
-      "weight": 2.704
+      "token": "severe_pain",
+      "weight": 3.145
     },
     {
-      "token": "bear",
-      "weight": 2.667
+      "token": "closed_fracture",
+      "weight": 2.954
+    },
+    {
+      "token": "deep_laceration",
+      "weight": 2.842
+    },
+    {
+      "token": "infected_wound",
+      "weight": 2.765
     },
     {
       "token": "persistent",
-      "weight": 2.355
+      "weight": 2.614
+    },
+    {
+      "token": "vomit",
+      "weight": 2.532
+    },
+    {
+      "token": "bad",
+      "weight": 2.458
     },
     {
       "token": "twist",
-      "weight": 2.27
-    },
-    {
-      "token": "sleep",
-      "weight": 2.264
-    },
-    {
-      "token": "severe",
-      "weight": 1.946
-    },
-    {
-      "token": "throw",
-      "weight": 1.896
-    },
-    {
-      "token": "fast",
-      "weight": 1.894
+      "weight": 2.381
     },
     {
       "token": "injure",
-      "weight": 1.894
+      "weight": 2.295
+    }
+  ],
+  "Routine": [
+    {
+      "token": "prescription_refill",
+      "weight": 3.512
+    },
+    {
+      "token": "routine_checkup",
+      "weight": 3.384
+    },
+    {
+      "token": "maintenance",
+      "weight": 3.189
+    },
+    {
+      "token": "renewal",
+      "weight": 3.024
+    },
+    {
+      "token": "mild_symptom",
+      "weight": 2.875
+    },
+    {
+      "token": "slightly",
+      "weight": 2.742
+    },
+    {
+      "token": "normal",
+      "weight": 2.598
+    },
+    {
+      "token": "slight",
+      "weight": 2.465
+    },
+    {
+      "token": "routine",
+      "weight": 2.382
+    },
+    {
+      "token": "follow",
+      "weight": 2.215
     }
   ]
 }

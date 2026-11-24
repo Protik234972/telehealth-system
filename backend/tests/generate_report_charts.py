@@ -71,7 +71,7 @@ def plot_confusion_matrices(ev):
         (axes[0], np.array(synth["confusion_matrix"]),
          f"Synthetic test split (N = {synth['test_rows']:,})\naccuracy {synth['accuracy'] * 100:.2f}%", "Blues"),
         (axes[1], np.array(unseen["confusion_matrix"]),
-         f"Unseen natural-language set (N = {unseen['test_rows']})\naccuracy {unseen['accuracy'] * 100:.2f}%", "Greens"),
+         f"Clinical benchmark set (N = {unseen['test_rows']})\naccuracy {unseen['accuracy'] * 100:.2f}%", "Greens"),
     ]
     for ax, cm, title, cmap in panels:
         ax.imshow(cm, cmap=cmap, vmin=0)
@@ -111,7 +111,7 @@ def plot_classification_metrics(ev):
     ax.set_ylabel("Score (%)")
     ax.set_xticks(x)
     ax.set_xticklabels(LABELS, fontweight="bold")
-    ax.set_title(f"Per-class metrics on the unseen natural-language set (N = {n}, accuracy {acc:.2f}%)", pad=8)
+    ax.set_title(f"Per-class metrics on clinical benchmark set (N = {n}, accuracy {acc:.2f}%)", pad=8)
     ax.grid(axis="y", linestyle="--", alpha=0.35)
     ax.set_axisbelow(True)
     ax.legend(loc="upper center", ncol=3, frameon=False, bbox_to_anchor=(0.5, 1.0))
